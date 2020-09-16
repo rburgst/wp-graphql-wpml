@@ -77,6 +77,30 @@ function wpgraphqlwpml_add_post_type_fields(\WP_Post_Type $post_type_object)
     );
     register_graphql_field(
         $post_type_object->graphql_single_name,
+        'localizedWpmlUrl',
+        [
+            'type' => 'String',
+            'description' => __('WPML localized url of the page/post', 'wp-graphql-wpml'),
+            'resolve' => function (
+                \WPGraphQL\Model\Post $post,
+                $args,
+                $context,
+                $info
+            ) {
+                $fields = $info->getFieldSelection();
+
+                $post_id = $post->ID;
+                $langInfo = wpml_get_language_information($post_id);
+                $orig_url = get_permalink($post_id);
+
+                $localizedUrl = apply_filters('wpml_permalink', $orig_url, $langInfo['language_code'], true);
+
+                return $localizedUrl;
+            },
+        ]
+    );
+    register_graphql_field(
+        $post_type_object->graphql_single_name,
         'translations',
         [
             'type' => ['list_of' => 'Translation'],
@@ -87,31 +111,38 @@ function wpgraphqlwpml_add_post_type_fields(\WP_Post_Type $post_type_object)
                 $context,
                 $info
             ) {
-                global $sitepress;
                 $fields = $info->getFieldSelection();
                 $translations = [];
 
                 $languages = apply_filters('wpml_active_languages', null);
+                $orig_post_id = $post->ID;
 
                 foreach ($languages as $language) {
-                    $orig_post_id = $post->ID;
                     $post_id = wpml_object_id_filter($orig_post_id, 'post', false, $language['language_code']);
                     if ($post_id === null || $post_id == $orig_post_id) continue;
+
+                    $orig_url = get_permalink($post_id);
                     $thisPost = get_post($post_id);
 
-                    $href = apply_filters('WPML_filter_link', $language['url'], $language);
-                    if (strpos($href, '?') !== false) {
-                        $href = str_replace('?', '/' . $thisPost->post_name . '/?', $href);
-                    } else {
+                    $translationUrl = apply_filters('wpml_permalink', $orig_url, $language['language_code'], true);
 
-                        if (substr($href, -1) !== '/') {
-                            $href .= '/';
-                        }
+//                    $baseUrl = apply_filters('WPML_filter_link', $language['url'], $language);
+//                    // for posts it can be that the $language['url'] already contains the translated url of the post
+//                    if (strpos($baseUrl, $thisPost->post_name) > 0) {
+//                        $translationUrl = $baseUrl;
+//                    } else {
+//                        $href = get_permalink($thisPost);
+//                        $siteUrl = get_site_url();
+//                        $hrefPath = dirname($href);
+//                        $relativePath = str_replace($siteUrl, "", $hrefPath);
+//                        $translationUrl = $baseUrl . $relativePath;
+//                        if (strlen($relativePath) > 0 && substr($relativePath, -1) !== "/") {
+//                            $translationUrl .= "/";
+//                        }
+//                        $translationUrl .= $thisPost->post_name . "/";
+//                    }
 
-                        $href .= $thisPost->post_name . '/';
-                    }
-
-                    $translations[] = array('locale' => $language['default_locale'], 'id' => $thisPost->ID, 'post_title' => $thisPost->post_title, 'href' => $href);
+                    $translations[] = array('locale' => $language['default_locale'], 'id' => $post_id, 'post_title' => $thisPost->post_title, 'href' => $translationUrl);
                 }
 
                 return $translations;
