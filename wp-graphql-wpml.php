@@ -87,15 +87,20 @@ function wpgraphqlwpml_add_post_type_fields(\WP_Post_Type $post_type_object)
                 $context,
                 $info
             ) {
-                $fields = $info->getFieldSelection();
-
                 $post_id = $post->ID;
                 $langInfo = wpml_get_language_information($post_id);
-                $orig_url = get_permalink($post_id);
+                $languages = apply_filters('wpml_active_languages', NULL);
+                $post_language = [];
+                foreach ($languages as $language) {
+                    if ($language['code'] === $langInfo['language_code']) {
+                        $post_language = $language;
+                        break;
+                    }
+                }
 
-                $localizedUrl = apply_filters('wpml_permalink', $orig_url, $langInfo['language_code'], true);
-
-                return $localizedUrl;
+                list($thisPost, $translationUrl) = graphql_wpml_get_translation_url($post_id, $post_language);
+                
+                return $translationUrl;
             },
         ]
     );
@@ -111,7 +116,6 @@ function wpgraphqlwpml_add_post_type_fields(\WP_Post_Type $post_type_object)
                 $context,
                 $info
             ) {
-                $fields = $info->getFieldSelection();
                 $translations = [];
 
                 $languages = apply_filters('wpml_active_languages', null);
@@ -121,26 +125,7 @@ function wpgraphqlwpml_add_post_type_fields(\WP_Post_Type $post_type_object)
                     $post_id = wpml_object_id_filter($orig_post_id, 'post', false, $language['language_code']);
                     if ($post_id === null || $post_id == $orig_post_id) continue;
 
-                    $orig_url = get_permalink($post_id);
-                    $thisPost = get_post($post_id);
-
-                    $translationUrl = apply_filters('wpml_permalink', $orig_url, $language['language_code'], true);
-
-//                    $baseUrl = apply_filters('WPML_filter_link', $language['url'], $language);
-//                    // for posts it can be that the $language['url'] already contains the translated url of the post
-//                    if (strpos($baseUrl, $thisPost->post_name) > 0) {
-//                        $translationUrl = $baseUrl;
-//                    } else {
-//                        $href = get_permalink($thisPost);
-//                        $siteUrl = get_site_url();
-//                        $hrefPath = dirname($href);
-//                        $relativePath = str_replace($siteUrl, "", $hrefPath);
-//                        $translationUrl = $baseUrl . $relativePath;
-//                        if (strlen($relativePath) > 0 && substr($relativePath, -1) !== "/") {
-//                            $translationUrl .= "/";
-//                        }
-//                        $translationUrl .= $thisPost->post_name . "/";
-//                    }
+                    list($thisPost, $translationUrl) = graphql_wpml_get_translation_url($post_id, $language);
 
                     $translations[] = array('locale' => $language['default_locale'], 'id' => $post_id, 'post_title' => $thisPost->post_title, 'href' => $translationUrl);
                 }
@@ -183,6 +168,53 @@ function wpgraphqlwpml_add_post_type_fields(\WP_Post_Type $post_type_object)
             },
         ]
     );
+}
+
+/**
+ * @param int $post_id
+ * @param $language
+ * @return array
+ */
+function graphql_wpml_get_translation_url(int $post_id, $language): array
+{
+    $thisPost = get_post($post_id);
+
+//                    $translationUrl = apply_filters('wpml_permalink', $orig_url, $language['language_code'], true);
+
+    $baseUrl = apply_filters('WPML_filter_link', $language['url'], $language);
+//                    // for posts it can be that the $language['url'] already contains the translated url of the post
+    if (strpos($baseUrl, $thisPost->post_name) > 0) {
+        $translationUrl = $baseUrl;
+    } else {
+        $href = get_permalink($thisPost->ID);
+        global $sitepress;
+        $root_url = $sitepress->language_url($language['code']);
+        $siteUrl = get_site_url();
+        $hrefPath = calculate_rel_path($href, $thisPost);
+        $relativePath = str_replace($siteUrl, "", $hrefPath);
+        $translationUrl = $root_url . $relativePath;
+        if (strlen($relativePath) > 0 && substr($relativePath, -1) !== "/") {
+            $translationUrl .= "/";
+        }
+        $translationUrl .= $thisPost->post_name . "/";
+    }
+    return array($thisPost, $translationUrl);
+}
+
+/**
+ * @param string $href
+ * @param WP_Post $thisPost
+ * @return string
+ */
+function calculate_rel_path(string $href, WP_Post $thisPost): string
+{
+    $hrefPath = dirname($href);
+    if ($thisPost->post_parent > 0) {
+        $cur_post = get_post($thisPost->post_parent);
+        $rel_path = calculate_rel_path($hrefPath, $cur_post);
+        return $rel_path . "/" . $cur_post->post_name;
+    }
+    return $hrefPath;
 }
 
 function wpgraphqlwpml_action_graphql_register_types()
