@@ -90,9 +90,11 @@ function wpgraphqlwpml_add_post_type_fields(\WP_Post_Type $post_type_object)
                 $context,
                 $info
             ) {
+                global $sitepress;
+
                 $post_id = $post->ID;
                 $langInfo = wpml_get_language_information($post_id);
-                $languages = apply_filters('wpml_active_languages', NULL);
+                $languages = $sitepress->get_active_languages();
                 $post_language = [];
                 foreach ($languages as $language) {
                     if ($language['code'] === $langInfo['language_code']) {
@@ -119,9 +121,10 @@ function wpgraphqlwpml_add_post_type_fields(\WP_Post_Type $post_type_object)
                 $context,
                 $info
             ) {
+                global $sitepress;
                 $translations = [];
 
-                $languages = apply_filters('wpml_active_languages', null);
+                $languages = $sitepress->get_active_languages();
                 $orig_post_id = $post->ID;
 
                 foreach ($languages as $language) {
@@ -153,7 +156,7 @@ function wpgraphqlwpml_add_post_type_fields(\WP_Post_Type $post_type_object)
                 $fields = $info->getFieldSelection();
                 $translations = [];
 
-                $languages = apply_filters('wpml_active_languages', null);
+                $languages = $sitepress->get_active_languages();
 
                 foreach ($languages as $language) {
                     $orig_post_id = $post->ID;
@@ -195,7 +198,16 @@ function graphql_wpml_get_translation_url(int $post_id, $language): array
         $siteUrl = get_site_url();
         $hrefPath = calculate_rel_path($href, $thisPost);
         $relativePath = str_replace($siteUrl, "", $hrefPath);
-        $translationUrl = $root_url . $relativePath;
+        $translationUrl = $root_url;
+        if (strlen($translationUrl) > 0 && substr($translationUrl, -1) !== "/") {
+            $translationUrl .= "/";
+        }
+        // now avoid adding the relative path with a preceding slash
+        if (substr($relativePath, 0, 1) === "/") {
+            $translationUrl .= substr($relativePath, 1);
+        } else {
+            $translationUrl .= $relativePath;
+        }
         if (strlen($relativePath) > 0 && substr($relativePath, -1) !== "/") {
             $translationUrl .= "/";
         }
@@ -307,7 +319,8 @@ function wpgraphqlwpml__translate_menu_location(
     return "${location}___${language}";
 }
 
-function wpgraphqlwpml__theme_mod_nav_menu_locations(array $args) {
+function wpgraphqlwpml__theme_mod_nav_menu_locations(array $args)
+{
     foreach ($args as $menu_name => $menu_term_id) {
         $translated = get_term($menu_term_id);
         $args[$menu_name] = $translated->term_id;
@@ -319,13 +332,16 @@ function wpgraphqlwpml__filter_graphql_connection_query_args(array $args)
 {
     global $sitepress;
 
+    if (!isset($args['taxonomy'])) {
+        return $args;
+    }
+    if (!isset($args['language'])) {
+        return $args;
+    }
     if ($args['taxonomy'] !== 'nav_menu') {
         return $args;
     }
     $target_lang = $args['language'];
-    if (!isset($target_lang)) {
-        return $args;
-    }
 
 
     $curLang = $sitepress->get_current_language();
@@ -359,7 +375,7 @@ function wpgraphqlwpml__filter_graphql_connection_should_execute(bool $should_ex
     $fieldName = $resolver->getInfo()->fieldName;
     if ($fieldName === 'menuItems') {
         $args = $resolver->getArgs();
-        if (!isset($args['where']) && isset($args['where']['language'])) {
+        if (!isset($args['where']) || !isset($args['where']['language'])) {
             return $should_execute;
         }
         $new_lang = $args['where']['language'];
@@ -371,7 +387,7 @@ function wpgraphqlwpml__filter_graphql_connection_should_execute(bool $should_ex
         unset($args['where']['language']);
     } else if ($fieldName === 'menus') {
         $args = $resolver->getArgs();
-        if (!isset($args['where']) && isset($args['where']['language'])) {
+        if (!isset($args['where']) || !isset($args['where']['language'])) {
             return $should_execute;
         }
         $new_lang = $args['where']['language'];
