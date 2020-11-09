@@ -189,14 +189,19 @@ function graphql_wpml_get_translation_url(int $post_id, $language): array
 
     $baseUrl = apply_filters('WPML_filter_link', $language['url'], $language);
 //                    // for posts it can be that the $language['url'] already contains the translated url of the post
-    if (strpos($baseUrl, $thisPost->post_name) > 0) {
+    if (isset($baseUrl) && strpos($baseUrl, $thisPost->post_name) > 0) {
         $translationUrl = $baseUrl;
     } else {
         $href = get_permalink($thisPost->ID);
         global $sitepress;
         $root_url = $sitepress->language_url($language['code']);
         $siteUrl = get_site_url();
-        $hrefPath = calculate_rel_path($href, $thisPost);
+        // special handling for root urls (homepage)
+        if ($href !== $siteUrl && $href !== ($siteUrl . "/")) {
+            $hrefPath = calculate_rel_path($href, $thisPost);
+        } else {
+            $hrefPath = "/";
+        }
         $relativePath = str_replace($siteUrl, "", $hrefPath);
         $translationUrl = $root_url;
         if (strlen($translationUrl) > 0 && substr($translationUrl, -1) !== "/") {
