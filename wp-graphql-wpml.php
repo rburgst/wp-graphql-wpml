@@ -161,7 +161,8 @@ function wpgraphqlwpml_add_post_type_fields(\WP_Post_Type $post_type_object)
 
                 foreach ($languages as $language) {
                     $orig_post_id = $post->ID;
-                    $post_id = wpml_object_id_filter($orig_post_id, 'post', false, $language['language_code']);
+                    $lang_code = array_key_exists('language_code', $languages) ? $language['language_code'] : $language['code'];
+                    $post_id = wpml_object_id_filter($orig_post_id, 'post', false, $lang_code);
                     if ($post_id === null || $post_id == $orig_post_id) continue;
 
                     $translation = new \WPGraphQL\Model\Post(
