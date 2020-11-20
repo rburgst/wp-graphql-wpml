@@ -19,3 +19,13 @@ are disabled.
 
 Thanks to https://github.com/shawnhooper/wpml-rest-api
 and https://github.com/valu-digital/wp-graphql-polylang
+
+## Caveats
+
+In case you are getting issues querying data (i.e. http 302, or errors), please
+first try to see whether you can successfully query data without this plugin.
+
+If it does not work without this plugin, then enabling this plugin wont
+magically heal your broken ACF config (see also #5).
+This plugin will only help in getting "more" content from your
+wordpress installation (which was previously disabled by WPML interfering with queries).

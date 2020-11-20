@@ -441,6 +441,10 @@ function wpgraphqlwpml_action_init()
     if (!wpgraphqlwpml_is_graphql_request()) {
         return;
     }
+
+    // prevent wpml to interfere (redirect to translated pages) on every graphql query
+    define ('WP_ADMIN', TRUE);
+
     add_action(
         'graphql_register_types',
         'wpgraphqlwpml_action_graphql_register_types',
