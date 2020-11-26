@@ -186,57 +186,16 @@ function wpgraphqlwpml_add_post_type_fields(\WP_Post_Type $post_type_object)
 function graphql_wpml_get_translation_url(int $post_id, $language): array
 {
     $thisPost = get_post($post_id);
-
-//                    $translationUrl = apply_filters('wpml_permalink', $orig_url, $language['language_code'], true);
-
     $baseUrl = apply_filters('WPML_filter_link', $language['url'], $language);
-//                    // for posts it can be that the $language['url'] already contains the translated url of the post
+    // for posts it can be that the $language['url'] already contains the translated url of the post
     if (isset($baseUrl) && strpos($baseUrl, $thisPost->post_name) > 0) {
         $translationUrl = $baseUrl;
     } else {
+        // note that this requires wpml 4.5.3 to work
         $href = get_permalink($thisPost->ID);
-        global $sitepress;
-        $root_url = $sitepress->language_url($language['code']);
-        $siteUrl = get_site_url();
-        // special handling for root urls (homepage)
-        if ($href !== $siteUrl && $href !== ($siteUrl . "/")) {
-            $hrefPath = calculate_rel_path($href, $thisPost);
-        } else {
-            $hrefPath = "/";
-        }
-        $relativePath = str_replace($siteUrl, "", $hrefPath);
-        $translationUrl = $root_url;
-        if (strlen($translationUrl) > 0 && substr($translationUrl, -1) !== "/") {
-            $translationUrl .= "/";
-        }
-        // now avoid adding the relative path with a preceding slash
-        if (substr($relativePath, 0, 1) === "/") {
-            $translationUrl .= substr($relativePath, 1);
-        } else {
-            $translationUrl .= $relativePath;
-        }
-        if (strlen($relativePath) > 0 && substr($relativePath, -1) !== "/") {
-            $translationUrl .= "/";
-        }
-        $translationUrl .= $thisPost->post_name . "/";
+        return array($thisPost, $href);
     }
     return array($thisPost, $translationUrl);
-}
-
-/**
- * @param string $href
- * @param WP_Post $thisPost
- * @return string
- */
-function calculate_rel_path(string $href, WP_Post $thisPost): string
-{
-    $hrefPath = dirname($href);
-    if ($thisPost->post_parent > 0) {
-        $cur_post = get_post($thisPost->post_parent);
-        $rel_path = calculate_rel_path($hrefPath, $cur_post);
-        return $rel_path . "/" . $cur_post->post_name;
-    }
-    return $hrefPath;
 }
 
 function wpgraphqlwpml_action_graphql_register_types()
