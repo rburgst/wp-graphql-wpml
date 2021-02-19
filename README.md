@@ -17,6 +17,16 @@ Adds WPML functionality to wpgraphql so that translations can be queried
 and WPML default filters which disable the listing of all content
 are disabled.
 
+Note that the primary use case for this plugin is to be used together with Gatsby
+where you can perform all filtering of your content within the Gatsby GraphQL schema.
+
+Since Gatsby pulls the whole content out of the wordpress database, this plugin
+will ensure that all translations of the translated content is being returned
+(instead of only content in the default language).
+
+If you dont intend to use this plugin together with Gatsby be aware that you 
+will typically have to be creative with filtering, see #8, #9.
+
 Thanks to https://github.com/shawnhooper/wpml-rest-api
 and https://github.com/valu-digital/wp-graphql-polylang
 
