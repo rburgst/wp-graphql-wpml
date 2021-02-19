@@ -274,17 +274,6 @@ function wpgraphqlwpml_action_graphql_register_types()
     }
 }
 
-function wpgraphqlwpml__translate_menu_location(
-    string $location,
-    string $language
-): string
-{
-    global $sitepress;
-
-    $language = strtolower($language);
-    return "${location}___${language}";
-}
-
 function wpgraphqlwpml__theme_mod_nav_menu_locations(array $args)
 {
     foreach ($args as $menu_name => $menu_term_id) {
@@ -301,10 +290,17 @@ function wpgraphqlwpml__filter_graphql_connection_query_args(array $args = null)
     if (!isset($args['taxonomy'])) {
         return $args;
     }
-    if (!isset($args['language'])) {
+    if ($args['taxonomy'] !== 'nav_menu') {
         return $args;
     }
-    if ($args['taxonomy'] !== 'nav_menu') {
+
+    // we have a taxonomy query, remove the includes filter to avoid restricting to localized
+    // menu locations
+    if ($args['include']) {
+        unset($args['include']);
+    }
+
+    if (!isset($args['language'])) {
         return $args;
     }
     $target_lang = $args['language'];
@@ -367,26 +363,67 @@ function wpgraphqlwpml__filter_graphql_connection_should_execute(bool $should_ex
     return $should_execute;
 }
 
+function wpgraphqlpwml__filter_graphql_return_field_from_model($field, $key, $model_name, $data, $visibility, $owner, $current_user)
+{
+    global $sitepress;
+
+    if ($model_name === 'MenuObject' && $key === 'locations' && $field === null) {
+        // this is a case where we have a menu item in a different language and no location
+        // matches since locations point to the default menu id, therefore, we need to re-load
+        // the same menu (term) with the default translation to figure out to which
+        // locations this menu maps to
+        global $icl_adjust_id_url_filter_off;
+        // turn translation of terms / menus back on
+        $icl_adjust_id_url_filter_off = false;
+
+        $term_in_current_language = get_term($data->term_id);
+        $cur_language_locations = get_nav_menu_locations();
+        $target_locations = null;
+        foreach ( $cur_language_locations as $location => $id ) {
+            $loc = get_term($id);
+            if ( isset($loc) && absint( $loc->term_id ) === ( $term_in_current_language->term_id ) ) {
+                $target_locations[] = $location;
+            }
+        }
+        $icl_adjust_id_url_filter_off = true;
+        $icl_adjust_id_url_filter_off = true;
+        return $target_locations;
+    }
+    return $field;
+}
+
 function wpgraphqlwpml__filter_graphql_connection_query(mixed $query, AbstractConnectionResolver $resolver)
 {
     return $query;
 }
 
+function wpgraphqlwpml__filter_graphql_pre_model_data_is_private($unused, $model_name, $data, $visibility, $owner, $current_user)
+{
+    if ($model_name === 'MenuObject') {
+        return false;
+    }
+    return null;
+}
+
 function wpgraphqlwpml__filter_graphql_connection_ids(array $ids, AbstractConnectionResolver $resolver)
 {
-    global $sitepress;
     global $wpgraphqlwpml_prev_language;
 
     if ($resolver->getInfo()->fieldName === 'menus') {
+        global $icl_adjust_id_url_filter_off;
+        $icl_adjust_id_url_filter_off = true;
         $args = $resolver->getArgs();
         if (!isset($args['where']) && !isset($wpgraphqlwpml_prev_language)) {
             return $ids;
         }
-        $result = array();
-        foreach ($ids as $orig_id) {
-            $translated = get_term($orig_id);
-            array_push($result, $translated->term_id);
+        if (true) {
+            return $ids;
         }
+//        $result = array();
+//        foreach ($ids as $orig_id) {
+//            $translated = get_term($orig_id);
+//            array_push($result, $translated->term_id);
+//        }
 //        $sitepress->switch_lang($wpgraphqlwpml_prev_language);
 //        unset($wpgraphqlwpml_prev_language);
         return $result;
@@ -434,7 +471,7 @@ function wpgraphqlwpml_action_init()
     }
 
     // prevent wpml to interfere (redirect to translated pages) on every graphql query
-    define ('WP_ADMIN', TRUE);
+    define('WP_ADMIN', TRUE);
 
     add_action(
         'graphql_register_types',
@@ -444,26 +481,35 @@ function wpgraphqlwpml_action_init()
     );
 
     add_filter(
-        'graphql_connection_query_args',
-        'wpgraphqlwpml__filter_graphql_connection_query_args',
-        10,
-        2
-    );
-    add_filter(
         'graphql_connection_should_execute',
         'wpgraphqlwpml__filter_graphql_connection_should_execute',
         10,
         2
     );
-//    add_filter(
-//        'graphql_connection_query',
-//        'wpgraphqlwpml__filter_graphql_connection_query',
-//        10,
-//        2
-//    );
+
     add_filter(
         'graphql_connection_ids',
         'wpgraphqlwpml__filter_graphql_connection_ids',
+        10,
+        2
+    );
+
+    add_filter(
+        'graphql_pre_model_data_is_private',
+        'wpgraphqlwpml__filter_graphql_pre_model_data_is_private',
+        10,
+        6
+    );
+    add_filter(
+        'graphql_return_field_from_model',
+        'wpgraphqlpwml__filter_graphql_return_field_from_model',
+        10,
+        7
+    );
+
+    add_filter(
+        'graphql_connection_query_args',
+        'wpgraphqlwpml__filter_graphql_connection_query_args',
         10,
         2
     );
