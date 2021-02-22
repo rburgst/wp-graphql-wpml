@@ -294,7 +294,7 @@ function wpgraphqlwpml__theme_mod_nav_menu_locations(array $args)
     return $args;
 }
 
-function wpgraphqlwpml__filter_graphql_connection_query_args(array $args)
+function wpgraphqlwpml__filter_graphql_connection_query_args(array $args = null)
 {
     global $sitepress;
 
