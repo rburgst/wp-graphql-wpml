@@ -395,6 +395,38 @@ function wpgraphqlwpml__filter_graphql_connection_ids(array $ids, AbstractConnec
     return $ids;
 }
 
+/**
+ * WPGraphQL filter hook function to allow querying in all languages.
+ * This function is used to determine when the underlying WPGraphQL
+ * query requires that the language be set to 'all'.
+ *
+ * Hooks into the WPGraphQL filter: `graphql_connection_query_args`
+ *
+ * Notes:
+ *
+ * WPML does not provide a hook or other convenient method to access
+ * the logic applied when retrieving taxonomies - most of that logic
+ * relies on the current language.
+ *
+ * WPML _does_ have a method to temporarily switch a language. The
+ * `switch_lang` method allows for setting toe current language to
+ * 'all' - once set this way, taxonomies are not filtered by language.
+ */
+function wpgraphqlwpml__switch_language_to_all_for_query(array $args)
+{
+    global $sitepress;
+
+    // Set lang to 'all' when querying for built-in taxonomies
+    if (
+        isset($args['taxonomy']) &&
+        ($args['taxonomy'] == 'post_tag' || $args['taxonomy'] == 'category')
+    ) {
+        $sitepress->switch_lang('all');
+    }
+
+    return $args;
+}
+
 function wpgraphqlwpml_action_init()
 {
     if (!wpgraphqlwpml_is_graphql_request()) {
@@ -432,6 +464,14 @@ function wpgraphqlwpml_action_init()
     add_filter(
         'graphql_connection_ids',
         'wpgraphqlwpml__filter_graphql_connection_ids',
+        10,
+        2
+    );
+
+    // Add filter to adjust WPML language for certain queries
+    add_filter(
+        'graphql_connection_query_args',
+        'wpgraphqlwpml__switch_language_to_all_for_query',
         10,
         2
     );
