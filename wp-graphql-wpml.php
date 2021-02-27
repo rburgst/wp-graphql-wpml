@@ -269,6 +269,35 @@ function wpgraphqlwpml_action_graphql_register_types()
             'description' => 'filters the menus by language',
         ],
     ]);
+    register_graphql_fields('Menu', [
+        'language' => [
+            'type' => 'String',
+            'description' => 'the language of the menu',
+            'resolve' => function (
+                \WPGraphQL\Model\Menu $menu,
+                $args,
+                $context,
+                $info
+            ) {
+                $menuId = $menu->fields['databaseId'];
+                $args = array('element_id' => $menuId, 'element_type' => 'nav_menu' );
+                $lang_details = apply_filters( 'wpml_element_language_details', $menu, $args );
+                if (!isset($lang_details)) {
+                    // we have to do it the hard way, reload the term and find out the term taxonomy id
+                    global $icl_adjust_id_url_filter_off;
+                    $icl_adjust_id_url_filter_off = true;
+                    $term = get_term($menuId);
+                    $term_taxonomy_id = $term->term_taxonomy_id;
+                    $args['element_id'] = $term_taxonomy_id;
+                    $lang_details = apply_filters( 'wpml_element_language_details', null, $args );
+                }
+                if (isset($lang_details)) {
+                    return $lang_details->language_code;
+                }
+                return null;
+            }
+        ],
+    ]);
     foreach (\WPGraphQL::get_allowed_post_types() as $post_type) {
         wpgraphqlwpml_add_post_type_fields(get_post_type_object($post_type));
     }
