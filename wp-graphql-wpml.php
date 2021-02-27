@@ -323,9 +323,13 @@ function wpgraphqlwpml__filter_graphql_connection_query_args(array $args = null)
         return $args;
     }
 
-    // we have a taxonomy query, remove the includes filter to avoid restricting to localized
-    // menu locations
-    if ($args['include']) {
+    $graphql_args = $args['graphql_args'];
+
+    $have_id_query = isset($graphql_args) && isset($graphql_args['where']) && isset($graphql_args['where']['id']);
+
+    if ($args['include'] && !$have_id_query) {
+        // we have a taxonomy query, remove the includes filter to avoid restricting to localized
+        // menu locations (however, only in case the user did not query for a specific id)
         unset($args['include']);
     }
 
