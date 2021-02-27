@@ -200,6 +200,48 @@ function graphql_wpml_get_translation_url(int $post_id, $language): array
 
 function wpgraphqlwpml_action_graphql_register_types()
 {
+    register_graphql_object_type('LanguageInfo', [
+        'description' => __('Locale Info (WPML)', 'wp-graphql-wpml'),
+        'fields' => [
+            'id' => [
+                'type' => [
+                    'non_null' => 'ID',
+                ],
+                'description' => __(
+                    'Language ID (WPML)',
+                    'wp-graphql-wpml'
+                ),
+            ],
+            'code' => [
+                'type' => 'String',
+                'description' => __(
+                    'Language code (WPML)',
+                    'wp-graphql-wpml'
+                ),
+            ],
+            'native_name' => [
+                'type' => 'String',
+                'description' => __(
+                    'Language native name (WPML)',
+                    'wp-graphql-wpml'
+                ),
+            ],
+            'translated_name' => [
+                'type' => 'String',
+                'description' => __(
+                    'Language translated name (WPML)',
+                    'wp-graphql-wpml'
+                ),
+            ],
+            'default_locale' => [
+                'type' => 'String',
+                'description' => __(
+                    'Language locale (WPML)',
+                    'wp-graphql-wpml'
+                ),
+            ],
+        ],
+    ]);
     register_graphql_object_type('Locale', [
         'description' => __('Locale (WPML)', 'wp-graphql-wpml'),
         'fields' => [
@@ -271,7 +313,7 @@ function wpgraphqlwpml_action_graphql_register_types()
     ]);
 
     register_graphql_field('RootQuery', 'languages', [
-            'type' => ['list_of' => 'String'],
+            'type' => ['list_of' => 'LanguageInfo'],
             'description' => __(
                 'List available languages',
                 'wp-graphql-wpml'
@@ -279,10 +321,8 @@ function wpgraphqlwpml_action_graphql_register_types()
             'resolve' => function ($source, $args, $context, $info) {
                 $args = array('skip_missing' => 1);
                 $language_infos = apply_filters('wpml_active_languages', null, $args);
-                $languages = array_map(function ($lang) {
-                    return $lang['language_code'];
-                }, $language_infos);
-                return $languages;
+
+                return $language_infos;
             }]
     );
     register_graphql_field('RootQuery', 'locales', [
