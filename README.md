@@ -45,5 +45,5 @@ wordpress installation (which was previously disabled by WPML interfering with q
 Due to the main use case of using this plugin together with gatsby some often required 
 filtering options are not yet available, such as
 
-* filtering menus by locale/language (see #3)
+* filtering menus by locale/language (see [#3](https://github.com/rburgst/wp-graphql-wpml/issues/3))
 
