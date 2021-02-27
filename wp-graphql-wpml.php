@@ -269,6 +269,37 @@ function wpgraphqlwpml_action_graphql_register_types()
             'description' => 'filters the menus by language',
         ],
     ]);
+
+    register_graphql_field('RootQuery', 'languages', [
+            'type' => ['list_of' => 'String'],
+            'description' => __(
+                'List available languages',
+                'wp-graphql-wpml'
+            ),
+            'resolve' => function ($source, $args, $context, $info) {
+                $args = array('skip_missing' => 1);
+                $language_infos = apply_filters('wpml_active_languages', null, $args);
+                $languages = array_map(function ($lang) {
+                    return $lang['language_code'];
+                }, $language_infos);
+                return $languages;
+            }]
+    );
+    register_graphql_field('RootQuery', 'locales', [
+            'type' => ['list_of' => 'String'],
+            'description' => __(
+                'List available locales',
+                'wp-graphql-wpml'
+            ),
+            'resolve' => function ($source, $args, $context, $info) {
+                $args = array('skip_missing' => 1);
+                $language_infos = apply_filters('wpml_active_languages', null, $args);
+                $locales = array_map(function ($lang) {
+                    return $lang['default_locale'];
+                }, $language_infos);
+                return $locales;
+            }]
+    );
     register_graphql_fields('Menu', [
         'language' => [
             'type' => 'String',
@@ -280,8 +311,8 @@ function wpgraphqlwpml_action_graphql_register_types()
                 $info
             ) {
                 $menuId = $menu->fields['databaseId'];
-                $args = array('element_id' => $menuId, 'element_type' => 'nav_menu' );
-                $lang_details = apply_filters( 'wpml_element_language_details', $menu, $args );
+                $args = array('element_id' => $menuId, 'element_type' => 'nav_menu');
+                $lang_details = apply_filters('wpml_element_language_details', $menu, $args);
                 if (!isset($lang_details)) {
                     // we have to do it the hard way, reload the term and find out the term taxonomy id
                     global $icl_adjust_id_url_filter_off;
@@ -289,7 +320,7 @@ function wpgraphqlwpml_action_graphql_register_types()
                     $term = get_term($menuId);
                     $term_taxonomy_id = $term->term_taxonomy_id;
                     $args['element_id'] = $term_taxonomy_id;
-                    $lang_details = apply_filters( 'wpml_element_language_details', null, $args );
+                    $lang_details = apply_filters('wpml_element_language_details', null, $args);
                 }
                 if (isset($lang_details)) {
                     return $lang_details->language_code;
@@ -412,9 +443,9 @@ function wpgraphqlpwml__filter_graphql_return_field_from_model($field, $key, $mo
         $term_in_current_language = get_term($data->term_id);
         $cur_language_locations = get_nav_menu_locations();
         $target_locations = null;
-        foreach ( $cur_language_locations as $location => $id ) {
+        foreach ($cur_language_locations as $location => $id) {
             $loc = get_term($id);
-            if ( isset($loc) && absint( $loc->term_id ) === ( $term_in_current_language->term_id ) ) {
+            if (isset($loc) && absint($loc->term_id) === ($term_in_current_language->term_id)) {
                 $target_locations[] = $location;
             }
         }
