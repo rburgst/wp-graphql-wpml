@@ -39,3 +39,11 @@ If it does not work without this plugin, then enabling this plugin wont
 magically heal your broken ACF config (see also #5).
 This plugin will only help in getting "more" content from your
 wordpress installation (which was previously disabled by WPML interfering with queries).
+
+## Limitations
+
+Due to the main use case of using this plugin together with gatsby some often required 
+filtering options are not yet available, such as
+
+* filtering menus by locale/language (see #3)
+
