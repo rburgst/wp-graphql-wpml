@@ -387,6 +387,12 @@ function wpgraphqlwpml__filter_graphql_connection_query_args(array $args = null)
 {
     global $sitepress;
 
+    if ($args['post_type'] === ['nav_menu_item'] && $args['fields'] === 'ids' && isset($args['tax_query'])) {
+        // this is a query for menu items which currently is limited only to the locations
+        // in the current language, in order to show all language menu items we need to
+        // clear the 'tax_query' portion within args
+        unset($args['tax_query']);
+    }
     if (!isset($args['taxonomy'])) {
         return $args;
     }
@@ -632,4 +638,5 @@ function wpgraphqlwpml_action_init()
 
 
 add_action('graphql_init', 'wpgraphqlwpml_action_init');
-// END RBA 20200828
+
+
