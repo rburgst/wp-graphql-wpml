@@ -503,7 +503,10 @@ function wpgraphqlwpml__filter_graphql_connection_query(mixed $query, AbstractCo
 
 function wpgraphqlwpml__filter_graphql_pre_model_data_is_private($unused, $model_name, $data, $visibility, $owner, $current_user)
 {
-    if ($model_name === 'MenuObject') {
+    // we need to avoid not being able to see menu items, depending on your settings and auth
+    // it often is the case that the graphql user does not seem to have permissions to read
+    // menus (not sure why this is not the case for pages, etc.)
+    if ($model_name === 'MenuObject' || $model_name === 'MenuItemObject') {
         return false;
     }
     return null;
