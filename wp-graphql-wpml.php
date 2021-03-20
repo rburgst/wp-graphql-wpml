@@ -761,6 +761,18 @@ function wpgraphqlwpml__switch_language_to_all_for_query(array $args)
     return $args;
 }
 
+/**
+ * Remove the `get_term` filter added by WPML during WPGraphQL requests.
+ * This filter forces WPML to adjust term ids *before* other queries are
+ * run. There is a WPML setting named `auto_adjust_ids` that will turn
+ * off this feature, but it should never be on for GraphQL queries.
+ */
+function wpgraphqlwpml__remove_term_adjust_id_filter() {
+    global $sitepress;
+
+    remove_filter('get_term', array($sitepress, 'get_term_adjust_id'), 1);
+}
+
 function wpgraphqlwpml_action_init()
 {
     if (!wpgraphqlwpml_is_graphql_request()) {
@@ -818,9 +830,16 @@ function wpgraphqlwpml_action_init()
         10,
         2
     );
+
+    // Remove the adjust id filter during WPGraphQL requests
+    add_action(
+        'init_graphql_request',
+        'wpgraphqlwpml__remove_term_adjust_id_filter',
+        10,
+        0
+    );
+
 }
 
 
 add_action('graphql_init', 'wpgraphqlwpml_action_init');
-
-
