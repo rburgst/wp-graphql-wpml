@@ -1,5 +1,6 @@
 <?php
 
+use GraphQLRelay\Relay;
 use WPGraphQL\Data\Connection\AbstractConnectionResolver;
 
 /**
@@ -167,6 +168,134 @@ function wpgraphqlwpml_add_post_type_fields(\WP_Post_Type $post_type_object)
 
                     $translation = new \WPGraphQL\Model\Post(
                         \WP_Post::get_instance($post_id)
+                    );
+
+                    array_push($translations, $translation);
+                }
+
+                return $translations;
+            },
+        ]
+    );
+}
+
+function wpgraphqlwpml_add_taxonomy_type_fields(\WP_Taxonomy $taxonomy)
+{
+    // Locale information for the current taxonomy
+    register_graphql_field(
+        $taxonomy->graphql_single_name,
+        'locale',
+        [
+            'type' => 'Locale',
+            'description' => __('WPML translation link', 'wp-graphql-wpml'),
+            'resolve' => function (
+                \WPGraphQL\Model\Term $term,
+                $args,
+                $context,
+                $info
+            ) use ($taxonomy) {
+                global $sitepress;
+
+                $fields = $info->getFieldSelection();
+
+                $language = [
+                    'id' => null,
+                    'locale' => null,
+                ];
+
+                $wpml_element_type = 'tax_' . $taxonomy->name;
+                $language_code = $sitepress->get_language_for_element( $term->term_id, $wpml_element_type);
+                $locale = $sitepress->get_locale( $language_code );
+
+                if (!$locale) {
+                    return null;
+                }
+
+                $language['id'] = $locale;
+
+                if (isset($fields['locale'])) {
+                    $language['locale'] = $locale;
+                }
+
+                return $language;
+            },
+        ]
+    );
+
+    // Collection of available translations for this taxonomy
+    register_graphql_field(
+        $taxonomy->graphql_single_name,
+        'translations',
+        [
+            'type' => ['list_of' => 'TermTranslation'],
+            'description' => __('WPML translations', 'wpnext'),
+            'resolve' => function (
+                \WPGraphQL\Model\Term $term,
+                $args,
+                $context,
+                $info
+            ) use ($taxonomy) {
+                global $sitepress;
+
+                $translations = [];
+                $languages = $sitepress->get_active_languages();
+                $original_language_code = $sitepress->get_current_language();
+                $original_term_id = $term->term_id;
+
+                foreach ($languages as $language) {
+                    $language_code = array_key_exists('language_code', $languages) ? $language['language_code'] : $language['code'];
+                    $term_id = wpml_object_id_filter($original_term_id, $taxonomy->name, false, $language_code);
+
+                    if ($term_id === null || $term_id == $original_term_id) continue;
+
+                    // Relies on adjust ids feature being 'off'
+                    $translated_term = get_term($term_id, $taxonomy->name);
+                    $translated_url = get_term_link($translated_term);
+
+                    $translations[] = array(
+                        'databaseId' => $translated_term->term_id,
+                        'href' => $translated_url,
+                        'id' => Relay::toGlobalId( 'term', (string) $translated_term->term_id ),
+                        'locale' => $language['default_locale'],
+                        'name' => $translated_term->name,
+                    );
+                }
+
+                return $translations;
+            },
+        ]
+    );
+
+    // Collection of translated versions of the taxonomy
+    register_graphql_field(
+        $taxonomy->graphql_single_name,
+        'translated',
+        [
+            'type' => ['list_of' => 'TermNode'],
+            'description' => __('WPML translated versions of the term', 'wpnext'),
+            'resolve' => function (
+                \WPGraphQL\Model\Term $term,
+                $args,
+                $context,
+                $info
+            ) use ($taxonomy) {
+                global $sitepress;
+
+                $fields = $info->getFieldSelection();
+
+                $translations = [];
+                $languages = $sitepress->get_active_languages();
+                $original_language_code = $sitepress->get_current_language();
+                $original_term_id = $term->term_id;
+
+                foreach ($languages as $language) {
+                    $language_code = array_key_exists('language_code', $languages) ? $language['language_code'] : $language['code'];
+                    $term_id = wpml_object_id_filter($original_term_id, $taxonomy->name, false, $language_code);
+
+                    if ($term_id === null || $term_id == $original_term_id) continue;
+
+                    $translation = new \WPGraphQL\Model\Term(
+                        \WP_Term::get_instance($term_id, $taxonomy->name)
                     );
 
                     array_push($translations, $translation);
@@ -419,8 +548,13 @@ function wpgraphqlwpml_action_graphql_register_types()
             }
         ],
     ]);
+
     foreach (\WPGraphQL::get_allowed_post_types() as $post_type) {
         wpgraphqlwpml_add_post_type_fields(get_post_type_object($post_type));
+    }
+
+    foreach (\WPGraphQL::get_allowed_taxonomies() as $taxonomy_type) {
+        wpgraphqlwpml_add_taxonomy_type_fields(get_taxonomy($taxonomy_type));
     }
 }
 
