@@ -299,6 +299,51 @@ function wpgraphqlwpml_action_graphql_register_types()
         ],
     ]);
 
+    register_graphql_object_type('TermTranslation', [
+        'description' => __('Term Translation (WPML)', 'wp-graphql-wpml'),
+        'fields' => [
+            'id' => [
+                'type' => [
+                    'non_null' => 'ID',
+                ],
+                'description' => __(
+                    'the id of the referenced translation (WPML)',
+                    'wp-graphql-wpml'
+                ),
+            ],
+            'databaseId' => [
+                'type' => [
+                    'non_null' => 'Int',
+                ],
+                'description' => __(
+                    'the primary key from the database for the referenced translation (WPML)',
+                    'wp-graphql-wpml'
+                ),
+            ],
+            'href' => [
+                'type' => 'String',
+                'description' => __(
+                    'the relative link to the translated content (WPML)',
+                    'wp-graphql-wpml'
+                ),
+            ],
+            'locale' => [
+                'type' => 'String',
+                'description' => __(
+                    'Language code (WPML)',
+                    'wp-graphql-wpml'
+                ),
+            ],
+            'name' => [
+                'type' => 'String',
+                'description' => __(
+                    'the name of the translated taxonomy (WPML)',
+                    'wp-graphql-wpml'
+                ),
+            ],
+        ],
+    ]);
+
     register_graphql_fields('RootQueryToMenuItemConnectionWhereArgs', [
         'language' => [
             'type' => 'String',
