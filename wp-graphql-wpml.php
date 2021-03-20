@@ -773,6 +773,20 @@ function wpgraphqlwpml__remove_term_adjust_id_filter() {
     remove_filter('get_term', array($sitepress, 'get_term_adjust_id'), 1);
 }
 
+/**
+ * Set the `icl_adjust_id_url_filter_off` global used in the
+ * `WPML_Term_Adjust_Id->filter()` function to indicate if term ids
+ * should be adjusted. Setting this global to `true` ensures that
+ * term ids are not adjusted during GraphQL queries.
+ */
+function wpgraphqlwpml__set_global_adjust_id_filter_off() {
+    // Set global for adjust ids in case the filter is added
+    // again at some point in the request
+    global $icl_adjust_id_url_filter_off;
+
+    $icl_adjust_id_url_filter_off = true;
+}
+
 function wpgraphqlwpml_action_init()
 {
     if (!wpgraphqlwpml_is_graphql_request()) {
@@ -839,6 +853,13 @@ function wpgraphqlwpml_action_init()
         0
     );
 
+    // Set the global adjust id filter to allow for multi-language term queries
+    add_action(
+        'init_graphql_request',
+        'wpgraphqlwpml__set_global_adjust_id_filter_off',
+        10,
+        0
+    );
 }
 
 
