@@ -350,7 +350,7 @@ function wpgraphqlwpml_action_graphql_register_types()
                 $context,
                 $info
             ) {
-                $menuId = $menu->fields['databaseId'];
+                $menuId = $menu->fields['databaseId']();
                 $args = array('element_id' => $menuId, 'element_type' => 'nav_menu');
                 $lang_details = apply_filters('wpml_element_language_details', $menu, $args);
                 if (!isset($lang_details)) {
