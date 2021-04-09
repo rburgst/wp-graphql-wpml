@@ -351,9 +351,14 @@ function wpgraphqlwpml_action_graphql_register_types()
                 $info
             ) {
                 $menuId = $menu->fields['databaseId'];
+                // note that sometimes the fields are closures which have to be resolved before
+                // we can access the values
+                if (gettype($menuId) === 'object') {
+                    $menuId = $menuId();
+                }
                 $args = array('element_id' => $menuId, 'element_type' => 'nav_menu');
                 $lang_details = apply_filters('wpml_element_language_details', $menu, $args);
-                if (!isset($lang_details)) {
+                if (!isset($lang_details) || !$lang_details) {
                     // we have to do it the hard way, reload the term and find out the term taxonomy id
                     global $icl_adjust_id_url_filter_off;
                     $icl_adjust_id_url_filter_off = true;
