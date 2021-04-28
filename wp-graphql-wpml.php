@@ -258,6 +258,7 @@ function wpgraphqlwpml_add_taxonomy_type_fields(\WP_Taxonomy $taxonomy)
                         'id' => Relay::toGlobalId( 'term', (string) $translated_term->term_id ),
                         'locale' => $language['default_locale'],
                         'name' => $translated_term->name,
+                        'slug' => $translated_term->slug,
                     );
                 }
 
@@ -467,6 +468,13 @@ function wpgraphqlwpml_action_graphql_register_types()
                 'type' => 'String',
                 'description' => __(
                     'the name of the translated taxonomy (WPML)',
+                    'wp-graphql-wpml'
+                ),
+            ],
+            'slug' => [
+                'type' => 'String',
+                'description' => __(
+                    'the slug of the translated taxonomy (WPML)',
                     'wp-graphql-wpml'
                 ),
             ],
