@@ -407,9 +407,36 @@ function wpgraphqlwpml__filter_graphql_connection_query_args(array $args = null)
 
     $graphql_args = $args['graphql_args'];
 
-    $have_id_query = isset($graphql_args) && isset($graphql_args['where']) && isset($graphql_args['where']['id']);
+    $curLang = $sitepress->get_current_language();
 
-    if ($args['include'] && !$have_id_query) {
+    $have_id_query = isset($graphql_args) && isset($graphql_args['where']) && isset($graphql_args['where']['id']);
+    $have_location_query = isset($graphql_args) && isset($graphql_args['where']) && isset($graphql_args['where']['location']);
+
+    if ($have_location_query && $args['include']) {
+        // we have the list of location ids in our `include` list, now we somehow need to figure out
+        // all location ids for the various languages
+        global $icl_adjust_id_url_filter_off;
+        $old_url_filter = $icl_adjust_id_url_filter_off;
+        $icl_adjust_id_url_filter_off = false;
+        $include = $args['include'];
+
+        $languages = $sitepress->get_active_languages();
+        $location_ids = [];
+        $filter_location = $graphql_args['where']['location'];
+
+        foreach ($languages as $language) {
+//            $sitepress->switch_lang($language);
+//            do_action( 'wpml_switch_language', $language);
+            $local_id = apply_filters('wpml_object_id', $include, 'nav_menu', false, $language['code']);
+            if ($local_id) {
+                $term = get_term($local_id);
+                $location_ids[] = $local_id;
+            }
+        }
+//        $sitepress->switch_lang($curLang);
+        $icl_adjust_id_url_filter_off = $old_url_filter;
+        $args['include'] = $location_ids;
+     } else if ($args['include'] && !$have_id_query) {
         // we have a taxonomy query, remove the includes filter to avoid restricting to localized
         // menu locations (however, only in case the user did not query for a specific id)
         unset($args['include']);
@@ -421,7 +448,6 @@ function wpgraphqlwpml__filter_graphql_connection_query_args(array $args = null)
     $target_lang = $args['language'];
 
 
-    $curLang = $sitepress->get_current_language();
     // Required only when using other than the default language because the
     // menu location for the default language is the original location
     if ($curLang !== $target_lang) {
@@ -478,7 +504,9 @@ function wpgraphqlwpml__filter_graphql_connection_should_execute(bool $should_ex
     return $should_execute;
 }
 
-function wpgraphqlpwml__filter_graphql_return_field_from_model($field, $key, $model_name, $data, $visibility, $owner, $current_user)
+function wpgraphqlpwml__filter_graphql_return_field_from_model(
+    $field, $key, $model_name, $data, $visibility, $owner, $current_user
+)
 {
     global $sitepress;
 
