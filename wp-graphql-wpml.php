@@ -388,6 +388,51 @@ function wpgraphqlwpml__theme_mod_nav_menu_locations(array $args)
     return $args;
 }
 
+function resolve_menu_location_filter($location_filter, $language_filter)
+{
+    global $sitepress;
+
+    // we have the list of location ids in our `include` list, now we somehow need to figure out
+    // all location ids for the various languages
+    global $icl_adjust_id_url_filter_off;
+    $old_url_filter = $icl_adjust_id_url_filter_off;
+    $icl_adjust_id_url_filter_off = false;
+
+    // in case we have a language filter as well, only use the location ids from the specified
+    // language
+    if ($language_filter) {
+        $languages = [$language_filter];
+    } else {
+        $languages = $sitepress->get_active_languages();
+    }
+
+    $locations = [];
+    if (!is_array($location_filter)) {
+        $locations[] = $location_filter;
+    } else {
+        $locations = $location_filter;
+    }
+    $location_ids = [];
+
+    foreach ($locations as $cur_location) {
+        foreach ($languages as $language) {
+            $lang_code = $language;
+            if (is_array($language)) {
+                $lang_code = $language['code'];
+            }
+            $local_id = apply_filters('wpml_object_id', $cur_location, 'nav_menu', false, $lang_code);
+            if ($local_id) {
+                $location_ids[] = $local_id;
+            }
+        }
+
+    }
+    $icl_adjust_id_url_filter_off = $old_url_filter;
+    return $location_ids;
+}
+
+$wpgraphqlwpml_url_filter_off = false;
+
 function wpgraphqlwpml__filter_graphql_connection_query_args(array $args = null)
 {
     global $sitepress;
@@ -396,7 +441,32 @@ function wpgraphqlwpml__filter_graphql_connection_query_args(array $args = null)
         // this is a query for menu items which currently is limited only to the locations
         // in the current language, in order to show all language menu items we need to
         // clear the 'tax_query' portion within args
-        unset($args['tax_query']);
+        $tax_query = $args['tax_query'];
+        $need_unset = true;
+        $query_lang = null;
+        if (isset($args['language'])) {
+            $query_lang = $args['language'];
+        }
+        if (count($tax_query) === 1) {
+            $first_tax_query = $tax_query[0];
+            if ($first_tax_query['taxonomy'] === 'nav_menu' && $first_tax_query['field'] === 'term_id') {
+                $old_terms = $first_tax_query['terms'];
+                $resolved_terms = resolve_menu_location_filter($old_terms, $query_lang);
+                $first_tax_query['terms'] = $resolved_terms;
+                $need_unset = false;
+
+                global $icl_adjust_id_url_filter_off;
+                // turn the terms filtering off for now
+                global $wpgraphqlwpml_url_filter_off;
+                $wpgraphqlwpml_url_filter_off = $icl_adjust_id_url_filter_off;
+                $icl_adjust_id_url_filter_off = true;
+
+            }
+            $args['tax_query'] = [$first_tax_query];
+        }
+        if ($need_unset) {
+            unset($args['tax_query']);
+        }
     }
     if (!isset($args['taxonomy'])) {
         return $args;
@@ -407,36 +477,15 @@ function wpgraphqlwpml__filter_graphql_connection_query_args(array $args = null)
 
     $graphql_args = $args['graphql_args'];
 
-    $curLang = $sitepress->get_current_language();
+    $cur_lang = $sitepress->get_current_language();
 
     $have_id_query = isset($graphql_args) && isset($graphql_args['where']) && isset($graphql_args['where']['id']);
     $have_location_query = isset($graphql_args) && isset($graphql_args['where']) && isset($graphql_args['where']['location']);
 
     if ($have_location_query && $args['include']) {
-        // we have the list of location ids in our `include` list, now we somehow need to figure out
-        // all location ids for the various languages
-        global $icl_adjust_id_url_filter_off;
-        $old_url_filter = $icl_adjust_id_url_filter_off;
-        $icl_adjust_id_url_filter_off = false;
-        $include = $args['include'];
-
-        $languages = $sitepress->get_active_languages();
-        $location_ids = [];
-        $filter_location = $graphql_args['where']['location'];
-
-        foreach ($languages as $language) {
-//            $sitepress->switch_lang($language);
-//            do_action( 'wpml_switch_language', $language);
-            $local_id = apply_filters('wpml_object_id', $include, 'nav_menu', false, $language['code']);
-            if ($local_id) {
-                $term = get_term($local_id);
-                $location_ids[] = $local_id;
-            }
-        }
-//        $sitepress->switch_lang($curLang);
-        $icl_adjust_id_url_filter_off = $old_url_filter;
+        $location_ids = resolve_menu_location_filter($args['include'], $args['language']);
         $args['include'] = $location_ids;
-     } else if ($args['include'] && !$have_id_query) {
+    } else if ($args['include'] && !$have_id_query) {
         // we have a taxonomy query, remove the includes filter to avoid restricting to localized
         // menu locations (however, only in case the user did not query for a specific id)
         unset($args['include']);
@@ -450,7 +499,7 @@ function wpgraphqlwpml__filter_graphql_connection_query_args(array $args = null)
 
     // Required only when using other than the default language because the
     // menu location for the default language is the original location
-    if ($curLang !== $target_lang) {
+    if ($cur_lang !== $target_lang) {
         $sitepress->switch_lang($target_lang);
 
         if (!has_filter('theme_mod_nav_menu_locations', 'wpgraphqlwpml__theme_mod_nav_menu_locations')) {
@@ -554,8 +603,10 @@ function wpgraphqlwpml__filter_graphql_pre_model_data_is_private($unused, $model
 function wpgraphqlwpml__filter_graphql_connection_ids(array $ids, AbstractConnectionResolver $resolver)
 {
     global $wpgraphqlwpml_prev_language;
+    global $wpgraphqlwpml_url_filter_off;
 
-    if ($resolver->getInfo()->fieldName === 'menus') {
+    $field_name = $resolver->getInfo()->fieldName;
+    if ($field_name === 'menus') {
         global $icl_adjust_id_url_filter_off;
         $icl_adjust_id_url_filter_off = true;
         $args = $resolver->getArgs();
@@ -573,6 +624,11 @@ function wpgraphqlwpml__filter_graphql_connection_ids(array $ids, AbstractConnec
 //        $sitepress->switch_lang($wpgraphqlwpml_prev_language);
 //        unset($wpgraphqlwpml_prev_language);
         return $result;
+    } elseif ($field_name === 'menuItems') {
+        // turn the icl url filter back on
+        global $icl_adjust_id_url_filter_off;
+        $icl_adjust_id_url_filter_off = $wpgraphqlwpml_url_filter_off;
+        unset($wpgraphqlwpml_url_filter_off);
     }
 
     return $ids;
