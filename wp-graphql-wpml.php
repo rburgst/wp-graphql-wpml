@@ -578,7 +578,7 @@ function wpgraphqlpwml__filter_graphql_return_field_from_model(
         $target_locations = null;
         foreach ($cur_language_locations as $location => $id) {
             $loc = get_term($id);
-            if (isset($loc) && absint($loc->term_id) === ($term_in_current_language->term_id)) {
+            if (isset($loc) && !is_wp_error($loc) && absint($loc->term_id) === ($term_in_current_language->term_id)) {
                 $target_locations[] = $location;
             }
         }
