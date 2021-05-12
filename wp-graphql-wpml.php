@@ -186,7 +186,7 @@ function wpgraphqlwpml_add_post_type_fields(\WP_Post_Type $post_type_object)
 function graphql_wpml_get_translation_url(int $post_id, $language): array
 {
     $thisPost = get_post($post_id);
-    if (array_key_exists('url')) {
+    if (array_key_exists('url', $language)) {
         $baseUrl = apply_filters('WPML_filter_link', $language['url'], $language);
     }
     // for posts it can be that the $language['url'] already contains the translated url of the post
@@ -439,7 +439,7 @@ function wpgraphqlwpml__filter_graphql_connection_query_args(array $args = null)
 {
     global $sitepress;
 
-    if ($args['post_type'] === ['nav_menu_item'] && $args['fields'] === 'ids' && isset($args['tax_query'])) {
+    if (array_key_exists("post_type", $args) && $args['post_type'] === ['nav_menu_item'] && $args['fields'] === 'ids' && isset($args['tax_query'])) {
         // this is a query for menu items which currently is limited only to the locations
         // in the current language, in order to show all language menu items we need to
         // clear the 'tax_query' portion within args
