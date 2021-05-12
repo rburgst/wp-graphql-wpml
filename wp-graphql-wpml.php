@@ -439,6 +439,9 @@ function wpgraphqlwpml__filter_graphql_connection_query_args(array $args = null)
 {
     global $sitepress;
 
+    if (!$args) {
+        return $args;
+    }
     if (array_key_exists("post_type", $args) && $args['post_type'] === ['nav_menu_item'] && $args['fields'] === 'ids' && isset($args['tax_query'])) {
         // this is a query for menu items which currently is limited only to the locations
         // in the current language, in order to show all language menu items we need to
