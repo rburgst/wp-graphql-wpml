@@ -186,7 +186,9 @@ function wpgraphqlwpml_add_post_type_fields(\WP_Post_Type $post_type_object)
 function graphql_wpml_get_translation_url(int $post_id, $language): array
 {
     $thisPost = get_post($post_id);
-    $baseUrl = apply_filters('WPML_filter_link', $language['url'], $language);
+    if (array_key_exists('url')) {
+        $baseUrl = apply_filters('WPML_filter_link', $language['url'], $language);
+    }
     // for posts it can be that the $language['url'] already contains the translated url of the post
     if (isset($baseUrl) && strpos($baseUrl, $thisPost->post_name) > 0) {
         $translationUrl = $baseUrl;
