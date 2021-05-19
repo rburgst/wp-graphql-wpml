@@ -242,6 +242,13 @@ function wpgraphqlwpml_action_graphql_register_types()
                     'wp-graphql-wpml'
                 ),
             ],
+            'is_hidden' => [
+                'type' => 'Boolean',
+                'description' => __(
+                    'Is the language hidden?',
+                    'wp-graphql-wpml'
+                ),
+            ],
         ],
     ]);
     register_graphql_object_type('Locale', [
@@ -323,6 +330,11 @@ function wpgraphqlwpml_action_graphql_register_types()
             'resolve' => function ($source, $args, $context, $info) {
                 $args = array('skip_missing' => 1);
                 $language_infos = apply_filters('wpml_active_languages', null, $args);
+                
+                // Add visibility of language
+                foreach( $language_infos as $language_code => $data ) {
+                    $language_infos[$language_code]['is_hidden'] = ( in_array( $language_code, apply_filters( 'wpml_setting', [], 'hidden_languages' ) ) === true ? true : false );
+                }
 
                 return $language_infos;
             }]
