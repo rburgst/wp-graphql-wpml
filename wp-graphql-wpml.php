@@ -6,7 +6,7 @@ use WPGraphQL\Data\Connection\AbstractConnectionResolver;
  * Plugin Name: WPGraphQL WPML
  * Plugin URI: https://github.com/rburgst/wp-graphql-wpml
  * Description: Adds WPML functionality to WPGraphQL schema.
- * Version: 0.0.3
+ * Version: 1.0.6
  * Author: rburgst
  * Author URI: https://github.com/rburgst/
  * License: GPL-3
@@ -488,7 +488,7 @@ function wpgraphqlwpml__filter_graphql_connection_query_args(array $args = null)
     $have_location_query = isset($graphql_args) && isset($graphql_args['where']) && isset($graphql_args['where']['location']);
 
     if ($have_location_query && $args['include']) {
-        $location_ids = resolve_menu_location_filter($args['include'], $args['language']);
+        $location_ids = resolve_menu_location_filter($args['include'], $args['language'] ?? null);
         $args['include'] = $location_ids;
     } else if ($args['include'] && !$have_id_query) {
         // we have a taxonomy query, remove the includes filter to avoid restricting to localized
@@ -579,10 +579,9 @@ function wpgraphqlpwml__filter_graphql_return_field_from_model(
         foreach ($cur_language_locations as $location => $id) {
             $loc = get_term($id);
             if (isset($loc) && !is_wp_error($loc) && absint($loc->term_id) === ($term_in_current_language->term_id)) {
-                $target_locations[] = $location;
+                    $target_locations[] = $location;
+                }
             }
-        }
-        $icl_adjust_id_url_filter_off = true;
         $icl_adjust_id_url_filter_off = true;
         return $target_locations;
     }
