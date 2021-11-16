@@ -154,10 +154,23 @@ function wpgraphqlwpml_add_post_type_fields(\WP_Post_Type $post_type_object)
                 $info
             ) {
                 global $sitepress;
+                global $wpdb;
                 $fields = $info->getFieldSelection();
                 $translations = [];
 
                 $languages = $sitepress->get_active_languages();
+
+                // Get option 'page_on_front'
+                $settings = $wpdb->get_row(
+                    "SELECT option_value from {$wpdb->prefix}options where option_name = 'page_on_front'",
+                    ARRAY_A
+                );
+
+                // Get the default language code
+                $default_lang = apply_filters('wpml_default_language', NULL );
+
+                // Front page ID of the default language
+                $default_front_page_ID = $settings['option_value'];
 
                 foreach ($languages as $language) {
                     $orig_post_id = $post->ID;
@@ -168,6 +181,19 @@ function wpgraphqlwpml_add_post_type_fields(\WP_Post_Type $post_type_object)
                     $translation = new \WPGraphQL\Model\Post(
                         \WP_Post::get_instance($post_id)
                     );
+
+                    // Check if:
+                    // - the current language is not the default language
+                    // - the homepage option is configured
+                    if($lang_code != $default_lang && $default_front_page_ID) {
+                        $translated_front_pageID = apply_filters( 'wpml_object_id', $default_front_page_ID, 'page', FALSE, $lang_code );
+
+                        if($post_id == $translated_front_pageID) {
+
+                            // Replace the URI
+                            $translation->uri = '/' . $lang_code;
+                        }
+                    }
 
                     array_push($translations, $translation);
                 }
@@ -330,7 +356,7 @@ function wpgraphqlwpml_action_graphql_register_types()
             'resolve' => function ($source, $args, $context, $info) {
                 $args = array('skip_missing' => 1);
                 $language_infos = apply_filters('wpml_active_languages', null, $args);
-                
+
                 // Add visibility of language
                 foreach( $language_infos as $language_code => $data ) {
                     $language_infos[$language_code]['is_hidden'] = ( in_array( $language_code, apply_filters( 'wpml_setting', [], 'hidden_languages' ) ) === true ? true : false );
