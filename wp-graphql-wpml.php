@@ -6,7 +6,7 @@ use WPGraphQL\Data\Connection\AbstractConnectionResolver;
  * Plugin Name: WPGraphQL WPML
  * Plugin URI: https://github.com/rburgst/wp-graphql-wpml
  * Description: Adds WPML functionality to WPGraphQL schema.
- * Version: 1.0.6
+ * Version: 1.0.7
  * Author: rburgst
  * Author URI: https://github.com/rburgst/
  * License: GPL-3
