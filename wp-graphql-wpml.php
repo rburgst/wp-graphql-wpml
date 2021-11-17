@@ -154,20 +154,45 @@ function wpgraphqlwpml_add_post_type_fields(\WP_Post_Type $post_type_object)
                 $info
             ) {
                 global $sitepress;
+                global $wpdb;
+
                 $fields = $info->getFieldSelection();
                 $translations = [];
 
                 $languages = $sitepress->get_active_languages();
+                $settings = $wpdb->get_row(
+                    "SELECT option_value from {$wpdb->prefix}options where option_name = 'page_on_front'",
+                    ARRAY_A
+                );
+
+                // Get the default language code
+                $default_lang = apply_filters('wpml_default_language', NULL );
+
+                // Front page ID of the default language
+                $default_front_page_ID = $settings['option_value'];
 
                 foreach ($languages as $language) {
                     $orig_post_id = $post->ID;
                     $lang_code = array_key_exists('language_code', $languages) ? $language['language_code'] : $language['code'];
                     $post_id = wpml_object_id_filter($orig_post_id, 'post', false, $lang_code);
+
                     if ($post_id === null || $post_id == $orig_post_id) continue;
 
                     $translation = new \WPGraphQL\Model\Post(
                         \WP_Post::get_instance($post_id)
                     );
+
+                    // Check if the homepage option is configured
+                    if($default_front_page_ID) {
+
+                        // Get the ID of the translated home page
+                        $translated_front_pageID = apply_filters( 'wpml_object_id', $default_front_page_ID, 'page', FALSE, $lang_code );
+
+                        if($post_id == $translated_front_pageID) {
+                            $new_uri = $lang_code == $default_lang ? '/' : '/' . $lang_code;
+                            $translation->uri = $new_uri;
+                        }
+                    }
 
                     array_push($translations, $translation);
                 }
@@ -330,7 +355,7 @@ function wpgraphqlwpml_action_graphql_register_types()
             'resolve' => function ($source, $args, $context, $info) {
                 $args = array('skip_missing' => 1);
                 $language_infos = apply_filters('wpml_active_languages', null, $args);
-                
+
                 // Add visibility of language
                 foreach( $language_infos as $language_code => $data ) {
                     $language_infos[$language_code]['is_hidden'] = ( in_array( $language_code, apply_filters( 'wpml_setting', [], 'hidden_languages' ) ) === true ? true : false );
