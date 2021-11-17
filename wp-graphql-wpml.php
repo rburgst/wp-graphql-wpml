@@ -182,16 +182,15 @@ function wpgraphqlwpml_add_post_type_fields(\WP_Post_Type $post_type_object)
                         \WP_Post::get_instance($post_id)
                     );
 
-                    // Check if:
-                    // - the current language is not the default language
-                    // - the homepage option is configured
-                    if($lang_code != $default_lang && $default_front_page_ID) {
+                    // Check if the homepage option is configured
+                    if($default_front_page_ID) {
+
+                        // Get the ID of the translated home page
                         $translated_front_pageID = apply_filters( 'wpml_object_id', $default_front_page_ID, 'page', FALSE, $lang_code );
 
                         if($post_id == $translated_front_pageID) {
-
-                            // Replace the URI
-                            $translation->uri = '/' . $lang_code;
+                            $new_uri = $lang_code == $default_lang ? '/' : '/' . $lang_code;
+                            $translation->uri = $new_uri;
                         }
                     }
 
