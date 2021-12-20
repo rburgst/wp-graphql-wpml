@@ -218,9 +218,9 @@ function graphql_wpml_get_translation_url(int $post_id, $language): array
     if (isset($baseUrl) && strpos($baseUrl, $thisPost->post_name) > 0) {
         $translationUrl = $baseUrl;
     } else {
-        // note that this requires wpml 4.5.3 to work
         $href = get_permalink($thisPost->ID);
-        return array($thisPost, $href);
+        $wpml_permalink = apply_filters( 'wpml_permalink', $href, $language['code'] );
+        return array($thisPost, $wpml_permalink);
     }
     return array($thisPost, $translationUrl);
 }
@@ -714,7 +714,9 @@ function wpgraphqlwpml_action_init()
     }
 
     // prevent wpml to interfere (redirect to translated pages) on every graphql query
-    define('WP_ADMIN', TRUE);
+    add_filter('wpml_is_redirected', '__return_false');
+    add_filter('pre_wpml_is_translated_post_type', '__return_false');
+
 
     add_action(
         'graphql_register_types',
