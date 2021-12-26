@@ -714,7 +714,10 @@ function wpgraphqlwpml_action_init()
     }
 
     // prevent wpml to interfere (redirect to translated pages) on every graphql query
-    define('WP_ADMIN', TRUE);
+    add_filter('wpml_is_redirected', '__return_false');
+    // prevent wpml to filter out translated pages/posts etc
+    define(REST_REQUEST, 'true');
+
 
     add_action(
         'graphql_register_types',
