@@ -1,7 +1,6 @@
 {
     "name": "rburgst/wp-graphql-wpml",
     "description": "Adds WPML functionality to wpgraphql so that translations can be queried",
-    "version": "1.0.8",
     "type": "wordpress-plugin",
     "homepage": "https://github.com/rburgst/wp-graphql-wpml",
     "license": "GPL-3.0+",
