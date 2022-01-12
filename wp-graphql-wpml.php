@@ -61,7 +61,7 @@ function wpgraphqlwpml_add_post_type_fields(\WP_Post_Type $post_type_object)
                     'locale' => null,
                 ];
 
-                $langInfo = apply_filters( 'wpml_post_language_details', NULL, $post->ID );
+                $langInfo = apply_filters('wpml_post_language_details', NULL, $post->ID);
                 $locale = $langInfo['locale'];
 
                 if (!$locale) {
@@ -93,7 +93,7 @@ function wpgraphqlwpml_add_post_type_fields(\WP_Post_Type $post_type_object)
                 global $sitepress;
 
                 $post_id = $post->ID;
-                $langInfo = apply_filters( 'wpml_post_language_details', NULL, $post_id );
+                $langInfo = apply_filters('wpml_post_language_details', NULL, $post_id);
                 $languages = $sitepress->get_active_languages();
                 $post_language = [];
                 foreach ($languages as $language) {
@@ -166,7 +166,7 @@ function wpgraphqlwpml_add_post_type_fields(\WP_Post_Type $post_type_object)
                 );
 
                 // Get the default language code
-                $default_lang = apply_filters('wpml_default_language', NULL );
+                $default_lang = apply_filters('wpml_default_language', NULL);
 
                 // Front page ID of the default language
                 $default_front_page_ID = $settings['option_value'];
@@ -183,12 +183,12 @@ function wpgraphqlwpml_add_post_type_fields(\WP_Post_Type $post_type_object)
                     );
 
                     // Check if the homepage option is configured
-                    if($default_front_page_ID) {
+                    if ($default_front_page_ID) {
 
                         // Get the ID of the translated home page
-                        $translated_front_pageID = apply_filters( 'wpml_object_id', $default_front_page_ID, 'page', FALSE, $lang_code );
+                        $translated_front_pageID = apply_filters('wpml_object_id', $default_front_page_ID, 'page', FALSE, $lang_code);
 
-                        if($post_id == $translated_front_pageID) {
+                        if ($post_id == $translated_front_pageID) {
                             $new_uri = $lang_code == $default_lang ? '/' : '/' . $lang_code;
                             $translation->uri = $new_uri;
                         }
@@ -346,7 +346,10 @@ function wpgraphqlwpml_action_graphql_register_types()
         ],
     ]);
 
-    register_graphql_field('RootQuery', 'languages', [
+    register_graphql_field(
+        'RootQuery',
+        'languages',
+        [
             'type' => ['list_of' => 'LanguageInfo'],
             'description' => __(
                 'List available languages',
@@ -357,14 +360,18 @@ function wpgraphqlwpml_action_graphql_register_types()
                 $language_infos = apply_filters('wpml_active_languages', null, $args);
 
                 // Add visibility of language
-                foreach( $language_infos as $language_code => $data ) {
-                    $language_infos[$language_code]['is_hidden'] = ( in_array( $language_code, apply_filters( 'wpml_setting', [], 'hidden_languages' ) ) === true ? true : false );
+                foreach ($language_infos as $language_code => $data) {
+                    $language_infos[$language_code]['is_hidden'] = (in_array($language_code, apply_filters('wpml_setting', [], 'hidden_languages')) === true ? true : false);
                 }
 
                 return $language_infos;
-            }]
+            }
+        ]
     );
-    register_graphql_field('RootQuery', 'locales', [
+    register_graphql_field(
+        'RootQuery',
+        'locales',
+        [
             'type' => ['list_of' => 'String'],
             'description' => __(
                 'List available locales',
@@ -377,7 +384,8 @@ function wpgraphqlwpml_action_graphql_register_types()
                     return $lang['default_locale'];
                 }, $language_infos);
                 return $locales;
-            }]
+            }
+        ]
     );
     register_graphql_fields('Menu', [
         'language' => [
@@ -464,7 +472,6 @@ function resolve_menu_location_filter($location_filter, $language_filter)
                 $location_ids[] = $local_id;
             }
         }
-
     }
     $icl_adjust_id_url_filter_off = $old_url_filter;
     return $location_ids;
@@ -502,7 +509,6 @@ function wpgraphqlwpml__filter_graphql_connection_query_args(array $args = null)
                 global $wpgraphqlwpml_url_filter_off;
                 $wpgraphqlwpml_url_filter_off = $icl_adjust_id_url_filter_off;
                 $icl_adjust_id_url_filter_off = true;
-
             }
             $args['tax_query'] = [$first_tax_query];
         }
@@ -547,10 +553,10 @@ function wpgraphqlwpml__filter_graphql_connection_query_args(array $args = null)
         if (!has_filter('theme_mod_nav_menu_locations', 'wpgraphqlwpml__theme_mod_nav_menu_locations')) {
             add_filter('theme_mod_nav_menu_locations', 'wpgraphqlwpml__theme_mod_nav_menu_locations');
         }
-//        $args['where']['location'] = wpgraphqlwpml__translate_menu_location(
-//            $args['where']['location'],
-//            $target_lang
-//        );
+        //        $args['where']['location'] = wpgraphqlwpml__translate_menu_location(
+        //            $args['where']['location'],
+        //            $target_lang
+        //        );
     }
 
     unset($target_lang);
@@ -596,9 +602,14 @@ function wpgraphqlwpml__filter_graphql_connection_should_execute(bool $should_ex
 }
 
 function wpgraphqlpwml__filter_graphql_return_field_from_model(
-    $field, $key, $model_name, $data, $visibility, $owner, $current_user
-)
-{
+    $field,
+    $key,
+    $model_name,
+    $data,
+    $visibility,
+    $owner,
+    $current_user
+) {
     global $sitepress;
 
     if ($model_name === 'MenuObject' && $key === 'locations' && $field === null) {
@@ -616,9 +627,9 @@ function wpgraphqlpwml__filter_graphql_return_field_from_model(
         foreach ($cur_language_locations as $location => $id) {
             $loc = get_term($id);
             if (isset($loc) && !is_wp_error($loc) && absint($loc->term_id) === ($term_in_current_language->term_id)) {
-                    $target_locations[] = $location;
-                }
+                $target_locations[] = $location;
             }
+        }
         $icl_adjust_id_url_filter_off = true;
         return $target_locations;
     }
@@ -657,13 +668,13 @@ function wpgraphqlwpml__filter_graphql_connection_ids(array $ids, AbstractConnec
         if (true) {
             return $ids;
         }
-//        $result = array();
-//        foreach ($ids as $orig_id) {
-//            $translated = get_term($orig_id);
-//            array_push($result, $translated->term_id);
-//        }
-//        $sitepress->switch_lang($wpgraphqlwpml_prev_language);
-//        unset($wpgraphqlwpml_prev_language);
+        //        $result = array();
+        //        foreach ($ids as $orig_id) {
+        //            $translated = get_term($orig_id);
+        //            array_push($result, $translated->term_id);
+        //        }
+        //        $sitepress->switch_lang($wpgraphqlwpml_prev_language);
+        //        unset($wpgraphqlwpml_prev_language);
         return $result;
     } elseif ($field_name === 'menuItems') {
         // turn the icl url filter back on
@@ -716,8 +727,7 @@ function wpgraphqlwpml_action_init()
     // prevent wpml to interfere (redirect to translated pages) on every graphql query
     add_filter('wpml_is_redirected', '__return_false');
     // prevent wpml to filter out translated pages/posts etc
-    define('REST_REQUEST', 'true');
-
+    define('REST_REQUEST', true);
 
     add_action(
         'graphql_register_types',
@@ -771,5 +781,3 @@ function wpgraphqlwpml_action_init()
 
 
 add_action('graphql_init', 'wpgraphqlwpml_action_init');
-
-
