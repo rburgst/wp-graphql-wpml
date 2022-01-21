@@ -61,7 +61,7 @@ function wpgraphqlwpml_add_post_type_fields(\WP_Post_Type $post_type_object)
                     'locale' => null,
                 ];
 
-                $langInfo = wpml_get_language_information($post->ID);
+                $langInfo = apply_filters( 'wpml_post_language_details', NULL, $post->ID );
                 $locale = $langInfo['locale'];
 
                 if (!$locale) {
@@ -93,7 +93,7 @@ function wpgraphqlwpml_add_post_type_fields(\WP_Post_Type $post_type_object)
                 global $sitepress;
 
                 $post_id = $post->ID;
-                $langInfo = wpml_get_language_information($post_id);
+                $langInfo = apply_filters( 'wpml_post_language_details', NULL, $post_id );
                 $languages = $sitepress->get_active_languages();
                 $post_language = [];
                 foreach ($languages as $language) {
