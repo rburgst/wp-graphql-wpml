@@ -1,5 +1,6 @@
 <?php
 
+use GraphQLRelay\Relay;
 use WPGraphQL\Data\Connection\AbstractConnectionResolver;
 
 /**
@@ -203,6 +204,135 @@ function wpgraphqlwpml_add_post_type_fields(\WP_Post_Type $post_type_object)
     );
 }
 
+function wpgraphqlwpml_add_taxonomy_type_fields(\WP_Taxonomy $taxonomy)
+{
+    // Locale information for the current taxonomy
+    register_graphql_field(
+        $taxonomy->graphql_single_name,
+        'locale',
+        [
+            'type' => 'Locale',
+            'description' => __('WPML translation link', 'wp-graphql-wpml'),
+            'resolve' => function (
+                \WPGraphQL\Model\Term $term,
+                $args,
+                $context,
+                $info
+            ) use ($taxonomy) {
+                global $sitepress;
+
+                $fields = $info->getFieldSelection();
+
+                $language = [
+                    'id' => null,
+                    'locale' => null,
+                ];
+
+                $wpml_element_type = 'tax_' . $taxonomy->name;
+                $language_code = $sitepress->get_language_for_element( $term->term_id, $wpml_element_type);
+                $locale = $sitepress->get_locale( $language_code );
+
+                if (!$locale) {
+                    return null;
+                }
+
+                $language['id'] = $locale;
+
+                if (isset($fields['locale'])) {
+                    $language['locale'] = $locale;
+                }
+
+                return $language;
+            },
+        ]
+    );
+
+    // Collection of available translations for this taxonomy
+    register_graphql_field(
+        $taxonomy->graphql_single_name,
+        'translations',
+        [
+            'type' => ['list_of' => 'TermTranslation'],
+            'description' => __('WPML translations', 'wpnext'),
+            'resolve' => function (
+                \WPGraphQL\Model\Term $term,
+                $args,
+                $context,
+                $info
+            ) use ($taxonomy) {
+                global $sitepress;
+
+                $translations = [];
+                $languages = $sitepress->get_active_languages();
+                $original_language_code = $sitepress->get_current_language();
+                $original_term_id = $term->term_id;
+
+                foreach ($languages as $language) {
+                    $language_code = array_key_exists('language_code', $languages) ? $language['language_code'] : $language['code'];
+                    $term_id = wpml_object_id_filter($original_term_id, $taxonomy->name, false, $language_code);
+
+                    if ($term_id === null || $term_id == $original_term_id) continue;
+
+                    // Relies on adjust ids feature being 'off'
+                    $translated_term = get_term($term_id, $taxonomy->name);
+                    $translated_url = get_term_link($translated_term);
+
+                    $translations[] = array(
+                        'databaseId' => $translated_term->term_id,
+                        'href' => $translated_url,
+                        'id' => Relay::toGlobalId( 'term', (string) $translated_term->term_id ),
+                        'locale' => $language['default_locale'],
+                        'name' => $translated_term->name,
+                        'slug' => $translated_term->slug,
+                    );
+                }
+
+                return $translations;
+            },
+        ]
+    );
+
+    // Collection of translated versions of the taxonomy
+    register_graphql_field(
+        $taxonomy->graphql_single_name,
+        'translated',
+        [
+            'type' => ['list_of' => 'TermNode'],
+            'description' => __('WPML translated versions of the term', 'wpnext'),
+            'resolve' => function (
+                \WPGraphQL\Model\Term $term,
+                $args,
+                $context,
+                $info
+            ) use ($taxonomy) {
+                global $sitepress;
+
+                $fields = $info->getFieldSelection();
+
+                $translations = [];
+                $languages = $sitepress->get_active_languages();
+                $original_language_code = $sitepress->get_current_language();
+                $original_term_id = $term->term_id;
+
+                foreach ($languages as $language) {
+                    $language_code = array_key_exists('language_code', $languages) ? $language['language_code'] : $language['code'];
+                    $term_id = wpml_object_id_filter($original_term_id, $taxonomy->name, false, $language_code);
+
+                    if ($term_id === null || $term_id == $original_term_id) continue;
+
+                    $translation = new \WPGraphQL\Model\Term(
+                        \WP_Term::get_instance($term_id, $taxonomy->name)
+                    );
+
+                    array_push($translations, $translation);
+                }
+
+                return $translations;
+            },
+        ]
+    );
+}
+
 /**
  * @param int $post_id
  * @param $language
@@ -333,6 +463,58 @@ function wpgraphqlwpml_action_graphql_register_types()
         ],
     ]);
 
+    register_graphql_object_type('TermTranslation', [
+        'description' => __('Term Translation (WPML)', 'wp-graphql-wpml'),
+        'fields' => [
+            'id' => [
+                'type' => [
+                    'non_null' => 'ID',
+                ],
+                'description' => __(
+                    'the id of the referenced translation (WPML)',
+                    'wp-graphql-wpml'
+                ),
+            ],
+            'databaseId' => [
+                'type' => [
+                    'non_null' => 'Int',
+                ],
+                'description' => __(
+                    'the primary key from the database for the referenced translation (WPML)',
+                    'wp-graphql-wpml'
+                ),
+            ],
+            'href' => [
+                'type' => 'String',
+                'description' => __(
+                    'the relative link to the translated content (WPML)',
+                    'wp-graphql-wpml'
+                ),
+            ],
+            'locale' => [
+                'type' => 'String',
+                'description' => __(
+                    'Language code (WPML)',
+                    'wp-graphql-wpml'
+                ),
+            ],
+            'name' => [
+                'type' => 'String',
+                'description' => __(
+                    'the name of the translated taxonomy (WPML)',
+                    'wp-graphql-wpml'
+                ),
+            ],
+            'slug' => [
+                'type' => 'String',
+                'description' => __(
+                    'the slug of the translated taxonomy (WPML)',
+                    'wp-graphql-wpml'
+                ),
+            ],
+        ],
+    ]);
+
     register_graphql_fields('RootQueryToMenuItemConnectionWhereArgs', [
         'language' => [
             'type' => 'String',
@@ -413,8 +595,13 @@ function wpgraphqlwpml_action_graphql_register_types()
             }
         ],
     ]);
+
     foreach (\WPGraphQL::get_allowed_post_types() as $post_type) {
         wpgraphqlwpml_add_post_type_fields(get_post_type_object($post_type));
+    }
+
+    foreach (\WPGraphQL::get_allowed_taxonomies() as $taxonomy_type) {
+        wpgraphqlwpml_add_taxonomy_type_fields(get_taxonomy($taxonomy_type));
     }
 }
 
@@ -707,6 +894,32 @@ function wpgraphqlwpml__switch_language_to_all_for_query(array $args)
     return $args;
 }
 
+/**
+ * Remove the `get_term` filter added by WPML during WPGraphQL requests.
+ * This filter forces WPML to adjust term ids *before* other queries are
+ * run. There is a WPML setting named `auto_adjust_ids` that will turn
+ * off this feature, but it should never be on for GraphQL queries.
+ */
+function wpgraphqlwpml__remove_term_adjust_id_filter() {
+    global $sitepress;
+
+    remove_filter('get_term', array($sitepress, 'get_term_adjust_id'), 1);
+}
+
+/**
+ * Set the `icl_adjust_id_url_filter_off` global used in the
+ * `WPML_Term_Adjust_Id->filter()` function to indicate if term ids
+ * should be adjusted. Setting this global to `true` ensures that
+ * term ids are not adjusted during GraphQL queries.
+ */
+function wpgraphqlwpml__set_global_adjust_id_filter_off() {
+    // Set global for adjust ids in case the filter is added
+    // again at some point in the request
+    global $icl_adjust_id_url_filter_off;
+
+    $icl_adjust_id_url_filter_off = true;
+}
+
 function wpgraphqlwpml_action_init()
 {
     if (!wpgraphqlwpml_is_graphql_request()) {
@@ -767,9 +980,23 @@ function wpgraphqlwpml_action_init()
         10,
         2
     );
+
+    // Remove the adjust id filter during WPGraphQL requests
+    add_action(
+        'init_graphql_request',
+        'wpgraphqlwpml__remove_term_adjust_id_filter',
+        10,
+        0
+    );
+
+    // Set the global adjust id filter to allow for multi-language term queries
+    add_action(
+        'init_graphql_request',
+        'wpgraphqlwpml__set_global_adjust_id_filter_off',
+        10,
+        0
+    );
 }
 
 
 add_action('graphql_init', 'wpgraphqlwpml_action_init');
-
-
