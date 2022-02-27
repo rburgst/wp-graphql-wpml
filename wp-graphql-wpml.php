@@ -37,8 +37,28 @@ function wpgraphqlwpml_disable_wpml($query_args, $source, $args, $context, $info
     $query_args['suppress_wpml_where_and_join_filter'] = true;
     return $query_args;
 }
-
 add_filter('graphql_post_object_connection_query_args', 'wpgraphqlwpml_disable_wpml', 100, 5);
+
+function wpgraphqlwpml_handle_language_filter_request($query_args, $source, $args, $context, $info)
+{
+    $lang = $args['where']['wpmlLanguage'];
+    //If the wpmlLanguage argument exists in the WHERE parameters
+    if(isset($lang)){
+        global $sitepress;
+        //If WPML is installed
+        if($sitepress){
+            //Switch the current locale
+            $sitepress->switch_lang($lang);
+            //Remove the argument added earlier that removes all language filtering
+            $query_args['suppress_wpml_where_and_join_filter'] = false;
+        }
+    }
+
+  return $query_args;
+}
+add_filter('graphql_post_object_connection_query_args', 'wpgraphqlwpml_handle_language_filter_request', 110, 5);
+add_filter('graphql_term_object_connection_query_args', 'wpgraphqlwpml_handle_language_filter_request', 110, 5);
+add_filter('graphql_comment_object_connection_query_args', 'wpgraphqlwpml_handle_language_filter_request', 110, 5);
 
 function wpgraphqlwpml_add_post_type_fields(\WP_Post_Type $post_type_object)
 {
@@ -426,6 +446,52 @@ function wpgraphqlwpml_action_graphql_register_types()
     }
 }
 
+/**
+ * Registers a new "wpmlLanguage" where clause in specific post types (Pages, Posts, Categories, Comments, any custom post type and any custom taxonomy)
+ */
+function wpgraphqlwpml_action_graphql_register_language_where_filters()
+{
+    $connections_where_name = [
+        'RootQueryToPostConnectionWhereArgs',
+        'RootQueryToPageConnectionWhereArgs',
+        'RootQueryToCategoryConnectionWhereArgs',
+        'RootQueryToCommentConnectionWhereArgs',
+    ];
+    
+    $language_field_params = [
+        'wpmlLanguage' => [
+            'type' => 'String',
+            'description' => 'Filter by WPML language code',
+        ],
+    ];
+
+    //Get all new custom post types that are available in the GraphQL schema
+    $gql_valid_custom_post_types = get_post_types([
+        'show_in_graphql' => true, 
+        '_builtin' => false
+    ], 'objects');
+
+    //Get all new taxonomies post types that are available in the GraphQL schema
+    $gql_valid_taxonomies = get_taxonomies([
+        'show_in_graphql' => true, 
+        '_builtin' => false
+    ], 'objects');
+
+    //Add the custom post types to the connections that require the language filter option
+    foreach ($gql_valid_custom_post_types as $custom_post_type) {
+        $connections_where_name[] = 'RootQueryTo' . ucwords($custom_post_type->graphql_single_name) . 'ConnectionWhereArgs';
+    }
+    
+    //Add the custom taxonomies to the connections that require the language filter option
+    foreach ($gql_valid_taxonomies as $custom_taxonomy) {
+        $connections_where_name[] = 'RootQueryTo' . ucwords($custom_taxonomy->graphql_single_name) . 'ConnectionWhereArgs';
+    }
+
+    foreach ($connections_where_name as $connection) {
+        register_graphql_fields($connection, $language_field_params);
+    }
+}
+
 function wpgraphqlwpml__theme_mod_nav_menu_locations(array $args)
 {
     foreach ($args as $menu_name => $menu_term_id) {
@@ -732,6 +798,13 @@ function wpgraphqlwpml_action_init()
     add_action(
         'graphql_register_types',
         'wpgraphqlwpml_action_graphql_register_types',
+        10,
+        0
+    );
+
+    add_action(
+        'graphql_register_types',
+        'wpgraphqlwpml_action_graphql_register_language_where_filters',
         10,
         0
     );
