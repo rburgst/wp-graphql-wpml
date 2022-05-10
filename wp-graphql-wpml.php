@@ -456,6 +456,8 @@ function wpgraphqlwpml_action_graphql_register_language_where_filters()
         'RootQueryToPageConnectionWhereArgs',
         'RootQueryToCategoryConnectionWhereArgs',
         'RootQueryToCommentConnectionWhereArgs',
+        'CategoryToPostConnectionWhereArgs',
+        'PostToCategoryConnectionWhereArgs',
     ];
     
     $language_field_params = [
@@ -485,6 +487,19 @@ function wpgraphqlwpml_action_graphql_register_language_where_filters()
     //Add the custom taxonomies to the connections that require the language filter option
     foreach ($gql_valid_taxonomies as $custom_taxonomy) {
         $connections_where_name[] = 'RootQueryTo' . ucwords($custom_taxonomy->graphql_single_name) . 'ConnectionWhereArgs';
+        
+        if($custom_taxonomy->object_type){
+            //Add the language filter on the custom relations between taxonomies and post types
+            foreach ($custom_taxonomy->object_type as $post_type_name) {
+                if(isset($gql_valid_custom_post_types[$post_type_name])){
+                    $linked_post_type = $gql_valid_custom_post_types[$post_type_name];
+                    //Adds the taxonomy to custom post type connection
+                    $connections_where_name[] = ucwords($custom_taxonomy->graphql_single_name) . 'To' . ucwords($linked_post_type->graphql_single_name) . 'ConnectionWhereArgs';
+                    //Adds the custom post type to taxonomy connection (reverse)
+                    $connections_where_name[] = ucwords($linked_post_type->graphql_single_name) . 'To' . ucwords($custom_taxonomy->graphql_single_name) . 'ConnectionWhereArgs';
+                }
+            }
+        }
     }
 
     foreach ($connections_where_name as $connection) {
