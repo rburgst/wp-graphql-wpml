@@ -3,6 +3,7 @@
 use WPGraphQL\Data\Connection\AbstractConnectionResolver;
 use WPGraphQL\Model\Menu;
 use WPGraphQL\Model\Post;
+use WPGraphQL\Utils\Utils;
 
 /**
  * Plugin Name: WPGraphQL WPML
@@ -467,6 +468,42 @@ function wpgraphqlwpml_action_graphql_register_language_where_filters() {
     }
 }
 
+/**
+ * Registers a new "wpmlLanguage" input field on ACF options pages queries
+ * @throws Exception
+ */
+function wpgraphqlwpml_action_add_options_pages_language_filter() {
+    foreach (acf_get_options_pages() as $options_page) {
+        // Check if the option page should be shown in GraphQL schema
+        if (!isset($options_page['show_in_graphql']) || false === (bool)$options_page['show_in_graphql']) {
+            continue;
+        }
+        // TODO: Figure out how to re-register field or add arguments to field, without removing children
+        $type_name = Utils::format_type_name($options_page['graphql_field_name'] ?? $options_page['menu_slug']);
+        $field_name = Utils::format_field_name($options_page['graphql_field_name'] ?? $options_page['menu_slug']);
+        // Remove existing options page field
+        deregister_graphql_field('RootQuery', $field_name);
+        // Register new options page field with the wpmlLanguage argument
+        register_graphql_field(
+            'RootQuery',
+            $field_name,
+            [
+                'type' => $type_name,
+                'args' => [
+                    'wpmlLanguage' => [
+                        'type' => 'String',
+                        'description' => 'Filter by WPML language code',
+                    ],
+                ],
+                'description' => sprintf(__('%s options.', 'wp-graphql-acf'), $options_page['page_title']),
+                'resolve' => function () use ($options_page) {
+                    return !empty($options_page) ? $options_page : null;
+                }
+            ]
+        );
+    }
+}
+
 function wpgraphqlwpml_theme_mod_nav_menu_locations(array $args): array {
     foreach ($args as $menu_name => $menu_term_id) {
         $translated = get_term($menu_term_id);
@@ -741,6 +778,13 @@ function wpgraphqlwpml_action_init() {
     add_action(
         'graphql_register_types',
         'wpgraphqlwpml_action_graphql_register_language_where_filters',
+        10,
+        0
+    );
+
+    add_filter(
+        'graphql_register_types',
+        'wpgraphqlwpml_action_add_options_pages_language_filter',
         10,
         0
     );
