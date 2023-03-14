@@ -3,7 +3,6 @@
 use WPGraphQL\Data\Connection\AbstractConnectionResolver;
 use WPGraphQL\Model\Menu;
 use WPGraphQL\Model\Post;
-use WPGraphQL\Utils\Utils;
 
 /**
  * Plugin Name: WPGraphQL WPML
@@ -24,7 +23,7 @@ use WPGraphQL\Utils\Utils;
  */
 
 
-function wpgraphqlwpml_is_graphql_request() {
+function wpgraphqlwpml_is_graphql_request(): bool {
     // Detect WPGraphQL activation by checking if the main class is defined
     if (!class_exists('WPGraphQL')) {
         return false;
@@ -38,9 +37,10 @@ function wpgraphqlwpml_disable_wpml($query_args) {
     $query_args['suppress_wpml_where_and_join_filter'] = true;
     return $query_args;
 }
+
 add_filter('graphql_post_object_connection_query_args', 'wpgraphqlwpml_disable_wpml', 100, 1);
 
-function wpgraphqlwpml_handle_language_filter_request($query_args, $source, $args) {
+function wpgraphqlwpml_handle_language_filter_request($query_args, $unused, $args) {
     $lang = $args['where']['wpmlLanguage'];
     //If the wpmlLanguage argument exists in the WHERE parameters
     if (isset($lang)) {
@@ -56,10 +56,14 @@ function wpgraphqlwpml_handle_language_filter_request($query_args, $source, $arg
 
     return $query_args;
 }
+
 add_filter('graphql_post_object_connection_query_args', 'wpgraphqlwpml_handle_language_filter_request', 110, 3);
 add_filter('graphql_term_object_connection_query_args', 'wpgraphqlwpml_handle_language_filter_request', 110, 3);
 add_filter('graphql_comment_object_connection_query_args', 'wpgraphqlwpml_handle_language_filter_request', 110, 3);
 
+/**
+ * @throws Exception
+ */
 function wpgraphqlwpml_add_post_type_fields(WP_Post_Type $post_type_object) {
     $type = ucfirst($post_type_object->graphql_single_name);
     register_graphql_field(
@@ -149,12 +153,9 @@ function wpgraphqlwpml_add_post_type_fields(WP_Post_Type $post_type_object) {
         [
             'type' => ['list_of' => $type],
             'description' => __('WPML translated versions of the same post', 'wpnext'),
-            'resolve' => function (Post $post, $args, $context, $info) {
+            'resolve' => function (Post $post) {
                 global $sitepress;
                 global $wpdb;
-
-                $fields = $info->getFieldSelection();
-                $translations = [];
 
                 $languages = $sitepress->get_active_languages();
                 $settings = $wpdb->get_row(
@@ -167,6 +168,8 @@ function wpgraphqlwpml_add_post_type_fields(WP_Post_Type $post_type_object) {
 
                 // Front page ID of the default language
                 $default_front_page_ID = $settings['option_value'];
+
+                $translations = [];
 
                 foreach ($languages as $language) {
                     $orig_post_id = $post->ID;
@@ -221,8 +224,10 @@ function graphql_wpml_get_translation_url(int $post_id, $language): array {
     return array($thisPost, $translationUrl);
 }
 
-function wpgraphqlwpml_action_graphql_register_types()
-{
+/**
+ * @throws Exception
+ */
+function wpgraphqlwpml_action_graphql_register_types() {
     register_graphql_object_type('LanguageInfo', [
         'description' => __('Locale Info (WPML)', 'wp-graphql-wpml'),
         'fields' => [
@@ -357,7 +362,7 @@ function wpgraphqlwpml_action_graphql_register_types()
 
                 // Add visibility of language
                 foreach ($language_infos as $language_code => $data) {
-                    $language_infos[$language_code]['is_hidden'] = (in_array($language_code, apply_filters('wpml_setting', [], 'hidden_languages')) === true ? true : false);
+                    $language_infos[$language_code]['is_hidden'] = in_array($language_code, apply_filters('wpml_setting', [], 'hidden_languages')) === true;
                 }
 
                 return $language_infos;
@@ -376,10 +381,9 @@ function wpgraphqlwpml_action_graphql_register_types()
             'resolve' => function () {
                 $args = array('skip_missing' => 1);
                 $language_infos = apply_filters('wpml_active_languages', null, $args);
-                $locales = array_map(function ($lang) {
+                return array_map(function ($lang) {
                     return $lang['default_locale'];
                 }, $language_infos);
-                return $locales;
             }
         ]
     );
@@ -419,6 +423,7 @@ function wpgraphqlwpml_action_graphql_register_types()
 
 /**
  * Registers a new "wpmlLanguage" where clause in specific post types (Pages, Posts, Categories, Comments, any custom post type and any custom taxonomy)
+ * @throws Exception
  */
 function wpgraphqlwpml_action_graphql_register_language_where_filters() {
     $connections_where_name = [
@@ -462,7 +467,7 @@ function wpgraphqlwpml_action_graphql_register_language_where_filters() {
     }
 }
 
-function wpgraphqlwpml_theme_mod_nav_menu_locations(array $args) {
+function wpgraphqlwpml_theme_mod_nav_menu_locations(array $args): array {
     foreach ($args as $menu_name => $menu_term_id) {
         $translated = get_term($menu_term_id);
         $args[$menu_name] = $translated->term_id;
@@ -470,7 +475,7 @@ function wpgraphqlwpml_theme_mod_nav_menu_locations(array $args) {
     return $args;
 }
 
-function resolve_menu_location_filter($location_filter, $language_filter) {
+function resolve_menu_location_filter($location_filter, $language_filter): array {
     global $sitepress;
 
     // we have the list of location ids in our `include` list, now we somehow need to figure out
@@ -599,25 +604,13 @@ function wpgraphqlwpml_filter_graphql_connection_query_args(array $args = null) 
 
 $wpgraphqlwpml_prev_language = null;
 
-function wpgraphqlwpml_filter_graphql_connection_should_execute(bool $should_execute, AbstractConnectionResolver $resolver) {
+function wpgraphqlwpml_filter_graphql_connection_should_execute(bool $should_execute, AbstractConnectionResolver $resolver): bool {
     global $sitepress;
     global $wpgraphqlwpml_prev_language;
 
     $fieldName = $resolver->getInfo()->fieldName;
-    if ($fieldName === 'menuItems') {
-        $args = $resolver->getArgs();
-        if (!isset($args['where']) || !isset($args['where']['language'])) {
-            return $should_execute;
-        }
-        $new_lang = $args['where']['language'];
-        $current_language = $sitepress->get_current_language();
-        if ($new_lang !== $current_language) {
-            $sitepress->switch_lang($new_lang);
-            $wpgraphqlwpml_prev_language = $current_language;
-        }
-        unset($args['where']['language']);
-    } else if ($fieldName === 'menus') {
-        $args = $resolver->getArgs();
+    if ($fieldName === 'menuItems' || $fieldName === 'menus') {
+        $args = $resolver->get_args();
         if (!isset($args['where']) || !isset($args['where']['language'])) {
             return $should_execute;
         }
@@ -657,11 +650,6 @@ function wpgraphqlwpml_filter_graphql_return_field_from_model($field, $key, $mod
     return $field;
 }
 
-function wpgraphqlwpml__filter_graphql_connection_query(mixed $query, AbstractConnectionResolver $resolver)
-{
-    return $query;
-}
-
 function wpgraphqlwpml_filter_graphql_pre_model_data_is_private($unused, $model_name) {
     // we need to avoid not being able to see menu items, depending on your settings and auth
     // it often is the case that the graphql user does not seem to have permissions to read
@@ -672,7 +660,7 @@ function wpgraphqlwpml_filter_graphql_pre_model_data_is_private($unused, $model_
     return null;
 }
 
-function wpgraphqlwpml_filter_graphql_connection_ids(array $ids, AbstractConnectionResolver $resolver) {
+function wpgraphqlwpml_filter_graphql_connection_ids(array $ids, AbstractConnectionResolver $resolver): array {
     global $wpgraphqlwpml_prev_language;
     global $wpgraphqlwpml_url_filter_off;
 
@@ -680,11 +668,8 @@ function wpgraphqlwpml_filter_graphql_connection_ids(array $ids, AbstractConnect
     if ($field_name === 'menus') {
         global $icl_adjust_id_url_filter_off;
         $icl_adjust_id_url_filter_off = true;
-        $args = $resolver->getArgs();
+        $args = $resolver->get_args();
         if (!isset($args['where']) && !isset($wpgraphqlwpml_prev_language)) {
-            return $ids;
-        }
-        if (true) {
             return $ids;
         }
         //        $result = array();
@@ -694,7 +679,7 @@ function wpgraphqlwpml_filter_graphql_connection_ids(array $ids, AbstractConnect
         //        }
         //        $sitepress->switch_lang($wpgraphqlwpml_prev_language);
         //        unset($wpgraphqlwpml_prev_language);
-        return $result;
+        //        return $result;
     } elseif ($field_name === 'menuItems') {
         // turn the icl url filter back on
         global $icl_adjust_id_url_filter_off;
@@ -722,7 +707,7 @@ function wpgraphqlwpml_filter_graphql_connection_ids(array $ids, AbstractConnect
  * `switch_lang` method allows for setting toe current language to
  * 'all' - once set this way, taxonomies are not filtered by language.
  */
-function wpgraphqlwpml_switch_language_to_all_for_query(array $args) {
+function wpgraphqlwpml_switch_language_to_all_for_query(array $args): array {
     global $sitepress;
 
     // Set lang to 'all' when querying for built-in taxonomies
@@ -802,6 +787,5 @@ function wpgraphqlwpml_action_init() {
         2
     );
 }
-
 
 add_action('graphql_init', 'wpgraphqlwpml_action_init');
