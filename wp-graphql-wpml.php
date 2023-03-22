@@ -787,9 +787,11 @@ function wpgraphqlwpml_action_init() {
         2
     );
 
-    // Load ACF compatibility file and initialize
-    require_once 'acf-compatibility.php';
-    wpgraphqlwpml_init_acf();
+    // Load ACF compatibility (for options pages)
+    if (class_exists('ACF')) {
+        require_once 'acf-compatibility.php';
+        wpgraphqlwpml_init_acf();
+    }
 }
 
 add_action('graphql_init', 'wpgraphqlwpml_action_init');
